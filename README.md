@@ -1,2 +1,3 @@
-# jsonrpc-http
-A simple go implementation of json rpc over http
+# jsonrpc
+A simple go implementation of json-rpc over http.
+
