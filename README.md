@@ -1,5 +1,5 @@
 # jsonrpc
-A go implementation of json-rpc over http.
+A go implementation of json-rpc over http. This implementation only provides positional parameters (array of arbitrary types).
 
 ## Examples
 
@@ -10,7 +10,58 @@ Let's start by executing a simple json-rpc http call:
 ```go
 func main() {
     rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    response, _ := rpcClient.Call("getDate")
+    // generates body: {"jsonrpc":"2.0","method":"getDate","id":0}
+}
+```
+
+Call a function with parameter:
+
+```go
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
     response, _ := rpcClient.Call("addNumbers", 1, 2)
+    // generates body: {"jsonrpc":"2.0","method":"addNumbers","params":[1,2],"id":0}
+}
+```
+
+Call a function with arbitrary parameters:
+
+```go
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    response, _ := rpcClient.Call("createPerson", "Alex", 33, "Germany")
+    // generates body: {"jsonrpc":"2.0","method":"createPerson","params":["Alex",33,"Germany"],"id":0}
+}
+```
+
+Call a function providing custom data structures as parameters:
+
+```go
+type Person struct {
+  Name    string `json:"name"`
+  Age     int `json:"age"`
+  Country string `json:"country"`
+}
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    response, _ := rpcClient.Call("createPerson", Person{"Alex", 33, "Germany"})
+    // generates body: {"jsonrpc":"2.0","method":"createPerson","params":[{"name":"Alex","age":33,"country":"Germany"}],"id":0}
+}
+```
+
+Complex example:
+
+```go
+type Person struct {
+  Name    string `json:"name"`
+  Age     int `json:"age"`
+  Country string `json:"country"`
+}
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    response, _ := rpcClient.Call("createPersonsWithRole", []Person{{"Alex", 33, "Germany"}, {"Barney", 38, "Germany"}}, []string{"Admin", "User"})
+    // generates body: {"jsonrpc":"2.0","method":"createPersonsWithRole","params":[[{"name":"Alex","age":33,"country":"Germany"},{"name":"Barney","age":38,"country":"Germany"}],["Admin","User"]],"id":0}
 }
 ```
 
