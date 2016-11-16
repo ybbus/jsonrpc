@@ -115,3 +115,37 @@ func TestBasicAuthentication(t *testing.T) {
 
 	gomega.Expect(req.Header.Get("Authorization")).To(gomega.Equal("Basic YWxleDpzZWNyZXQ="))
 }
+
+type Person struct {
+	Name    string `json:"name"`
+	Age     int    `json:"age"`
+	Country string `json:"country"`
+}
+
+func TestReadmeExamples(t *testing.T) {
+	gomega.RegisterTestingT(t)
+
+	rpcClient := NewRPCClient(httpServer.URL)
+	rpcClient.SetAutoIncrementID(false)
+
+	rpcClient.Call("getDate")
+	body := (<-requestChan).body
+	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"getDate","id":0}`))
+
+	rpcClient.Call("addNumbers", 1, 2)
+	body = (<-requestChan).body
+	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"addNumbers","params":[1,2],"id":0}`))
+
+	rpcClient.Call("createPerson", "Alex", 33, "Germany")
+	body = (<-requestChan).body
+	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"createPerson","params":["Alex",33,"Germany"],"id":0}`))
+
+	rpcClient.Call("createPerson", Person{"Alex", 33, "Germany"})
+	body = (<-requestChan).body
+	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"createPerson","params":[{"name":"Alex","age":33,"country":"Germany"}],"id":0}`))
+
+	rpcClient.Call("createPersonsWithRole", []Person{{"Alex", 33, "Germany"}, {"Barney", 38, "Germany"}}, []string{"Admin", "User"})
+	body = (<-requestChan).body
+	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"createPersonsWithRole","params":[[{"name":"Alex","age":33,"country":"Germany"},{"name":"Barney","age":38,"country":"Germany"}],["Admin","User"]],"id":0}`))
+
+}
