@@ -14,7 +14,19 @@ func main() {
 }
 ```
 
-### ID Autoincrement
+### Basic authentication
+
+If the rpc-service is running behind a basic authentication you can easily set the credentials:
+
+```go
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    rpcClient.SetBasicAuth("alex", "secret")
+    response, _ := rpcClient.Call("addNumbers", 1, 2) // send with Authorization-Header
+}
+```
+
+### ID auto-increment
 
 Per default the ID of the json-rpc request increments automatically for each request.
 You can change this behaviour:
