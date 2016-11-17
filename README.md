@@ -24,7 +24,7 @@ func main() {
     response.getObject(&person)
 
     person.Age = 33
-    response, _ := rpcClient.Call("updatePersonById", person)
+    rpcClient.Call("updatePerson", person)
 }
 ```
 
