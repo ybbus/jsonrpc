@@ -15,8 +15,11 @@ type RPCClient interface {
 	SetNextID(uint)
 	SetAutoIncrementID(bool)
 	SetBasicAuth(string, string)
+	SetHTTPClient(*http.Client)
 }
 
+// RPCRequest is the structure that is used to build up an json-rpc request.
+// See: http://www.jsonrpc.org/specification#request_object
 type RPCRequest struct {
 	JSONRPC string      `json:"jsonrpc"`
 	Method  string      `json:"method"`
@@ -24,6 +27,8 @@ type RPCRequest struct {
 	ID      uint        `json:"id"`
 }
 
+// RPCResponse is the structure that is used to provide the result of an json-rpc request.
+// See: http://www.jsonrpc.org/specification#response_object
 type RPCResponse struct {
 	JSONRPC string      `json:"jsonrpc"`
 	Result  interface{} `json:"result"`
@@ -31,6 +36,8 @@ type RPCResponse struct {
 	ID      int         `json:"id"`
 }
 
+// RPCError is the structure that is used to provide the result in case of an rpc call error.
+// See: http://www.jsonrpc.org/specification#error_object
 type RPCError struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
@@ -46,6 +53,7 @@ type rpcClient struct {
 	idMutex         sync.Mutex
 }
 
+// NewRPCClient returns a new RPCClient interface with default configuration
 func NewRPCClient(endpoint string) RPCClient {
 	return &rpcClient{
 		endpoint:        endpoint,
@@ -97,6 +105,15 @@ func (client *rpcClient) incrementID() {
 	client.idMutex.Unlock()
 }
 
+func (client *rpcClient) SetBasicAuth(username string, password string) {
+	auth := username + ":" + password
+	client.basicAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
+func (client *rpcClient) SetHTTPClient(httpClient *http.Client) {
+	client.httpClient = httpClient
+}
+
 func (client *rpcClient) newRequest(method string, params ...interface{}) (*http.Request, error) {
 	client.idMutex.Lock()
 	rpcRequest := RPCRequest{
@@ -131,9 +148,4 @@ func (client *rpcClient) newRequest(method string, params ...interface{}) (*http
 	request.Header.Add("Accept", "application/json")
 
 	return request, nil
-}
-
-func (client *rpcClient) SetBasicAuth(username string, password string) {
-	auth := username + ":" + password
-	client.basicAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 }
