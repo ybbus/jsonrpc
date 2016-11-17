@@ -1,6 +1,7 @@
 package jsonrpc
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,8 @@ import (
 
 var requestChan = make(chan *RequestData, 1)
 
+var responseBody = ""
+
 type RequestData struct {
 	request *http.Request
 	body    string
@@ -27,6 +30,8 @@ func TestMain(m *testing.M) {
 		data, _ := ioutil.ReadAll(r.Body)
 		defer r.Body.Close()
 		requestChan <- &RequestData{r, string(data)}
+
+		fmt.Fprintf(w, responseBody)
 	}))
 	defer httpServer.Close()
 
@@ -71,6 +76,55 @@ func TestRpcJsonRequestStruct(t *testing.T) {
 		body := (<-requestChan).body
 		gomega.Expect(body).To(gomega.Equal(test.outResultJSON))
 	}
+}
+
+func TestRpcJsonResponseStruct(t *testing.T) {
+	gomega.RegisterTestingT(t)
+	rpcClient := NewRPCClient(httpServer.URL)
+	rpcClient.SetAutoIncrementID(false)
+
+	responseBody = `{"jsonrpc":"2.0","result":3,"id":0}`
+	response, _ := rpcClient.Call("test") // Call param does not matter, since response does not depend on request
+	<-requestChan
+	var intResult int64
+	intResult, _ = response.getInt()
+	gomega.Expect(int(intResult)).To(gomega.Equal(3))
+
+	responseBody = `{"jsonrpc":"2.0","result": 3.7,"id":0}`
+	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
+	<-requestChan
+	var floatResult float64
+	floatResult, _ = response.getFloat()
+	gomega.Expect(floatResult).To(gomega.Equal(3.7))
+
+	responseBody = `{"jsonrpc":"2.0","result": true,"id":0}`
+	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
+	<-requestChan
+	var boolResult bool
+	boolResult, _ = response.getBool()
+	gomega.Expect(boolResult).To(gomega.Equal(true))
+
+	responseBody = `{"jsonrpc":"2.0","result": {"name": "alex", "age": 33, "country": "Germany"},"id":0}`
+	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
+	<-requestChan
+	var person = Person{}
+	response.getObject(&person)
+	gomega.Expect(person).To(gomega.Equal(Person{"alex", 33, "Germany"}))
+
+	responseBody = `{"jsonrpc":"2.0","result": [{"name": "alex", "age": 33, "country": "Germany"}, {"name": "Ferolaz", "age": 333, "country": "Azeroth"}],"id":0}`
+	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
+	<-requestChan
+	var personArray = []Person{}
+	response.getObject(&personArray)
+	gomega.Expect(personArray).To(gomega.Equal([]Person{{"alex", 33, "Germany"}, {"Ferolaz", 333, "Azeroth"}}))
+
+	responseBody = `{"jsonrpc":"2.0","result": [1, 2, 3],"id":0}`
+	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
+	<-requestChan
+	var intArray = []int{}
+	response.getObject(&intArray)
+	gomega.Expect(intArray).To(gomega.Equal([]int{1, 2, 3}))
+
 }
 
 func TestIDIncremtWorks(t *testing.T) {

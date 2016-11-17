@@ -1,11 +1,16 @@
+# !!! WIP: Interfaces can change quite often :-) !!!
+
 # jsonrpc
 A go implementation of json-rpc over http. This implementation only provides positional parameters (array of arbitrary types).
 
 ## Examples
 
-### Simple call
+### Generating rpc-json requests
 
 Let's start by executing a simple json-rpc http call:
+In production code: Always make sure to check err != nil first!
+
+This calls generate and send a valid rpc-json object. (see: http://www.jsonrpc.org/specification#request_object)
 
 ```go
 func main() {
@@ -62,6 +67,98 @@ func main() {
     rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
     response, _ := rpcClient.Call("createPersonsWithRole", []Person{{"Alex", 33, "Germany"}, {"Barney", 38, "Germany"}}, []string{"Admin", "User"})
     // generates body: {"jsonrpc":"2.0","method":"createPersonsWithRole","params":[[{"name":"Alex","age":33,"country":"Germany"},{"name":"Barney","age":38,"country":"Germany"}],["Admin","User"]],"id":0}
+}
+```
+
+### Working with rpc-json responses
+
+
+Before working with the response object, make sure to check err != nil first.
+This error indicates problems on the network / http level of an error when parsing the json response.
+
+```go
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    response, err := rpcClient.Call("addNumbers", 1, 2)
+    if err != nil {
+        //error handling goes here
+    }
+}
+```
+
+The next thing you have to check is if an rpc-json protocol error occoured. This is done by checking if the Error field in the rpc-response != nil:
+(see: http://www.jsonrpc.org/specification#error_object)
+
+```go
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    response, err := rpcClient.Call("addNumbers", 1, 2)
+    if err != nil {
+        //error handling goes here
+    }
+
+    if response.Error != nil {
+        // check response.Error.Code, response.Error.Message, response.Error.Data  here
+    }
+}
+```
+
+After making sure that no errors occoured you can now examine the RPCResponse object.
+When executing a json-rpc request, most of the time you will be interested in the "result"-property of the returned json-rpc response object.
+(see: http://www.jsonrpc.org/specification#response_object)
+The library provides some helper functions to retrieve the result in the data format you are interested in.
+Again: check for err != nil here to be sure the expected type was provided in the response and could be parsed.
+
+```go
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    response, _ := rpcClient.Call("addNumbers", 1, 2)
+
+    result, err := response.getInt()
+    if err != nil {
+        // result seems not to be an integer value
+    }
+
+    // helpers provided for all primitive types:
+    response.getInt() // int64
+    response.getFloat() // float64
+    response.getString()
+    response.getBool()
+}
+```
+
+Retrieving arrays and objects is also very simple:
+
+```go
+// json annotations are only required to transform the structure back to json
+type Person struct {
+    Id   int `json:"id"`
+    Name string `json:"name"`
+    Age  int `json:"age"`
+}
+
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    response, _ := rpcClient.Call("getPersonById", 123)
+
+    person := Person{}
+    err := response.getObject(&Person) // expects a rpc-object result value like: {"id": 123, "name": "alex", "age": 33}
+
+    fmt.Println(person.Name)
+}
+```
+
+Retrieving arrays e.g. of ints:
+
+```go
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    response, _ := rpcClient.Call("getRandomNumbers", 10)
+
+    rndNumbers := []int{}
+    err := response.getObject(&rndNumbers) // expects a rpc-object result value like: [10, 188, 14, 3]
+
+    fmt.Println(rndNumbers[0])
 }
 ```
 

@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"io/ioutil"
+	"fmt"
 	"net/http"
 	"sync"
 )
 
 // RPCClient returns client that is used to execute json rpc calls over http
 type RPCClient interface {
-	Call(method string, params ...interface{}) (RPCResponse, error)
+	Call(method string, params ...interface{}) (*RPCResponse, error)
 	SetNextID(id uint)
 	SetAutoIncrementID(flag bool)
 	SetBasicAuth(username string, password string)
@@ -32,8 +32,8 @@ type RPCRequest struct {
 // See: http://www.jsonrpc.org/specification#response_object
 type RPCResponse struct {
 	JSONRPC string      `json:"jsonrpc"`
-	Result  interface{} `json:"result"`
-	Error   RPCError    `json:"error"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   *RPCError   `json:"error,omitempty"`
 	ID      int         `json:"id"`
 }
 
@@ -66,30 +66,27 @@ func NewRPCClient(endpoint string) RPCClient {
 	}
 }
 
-func (client *rpcClient) Call(method string, params ...interface{}) (RPCResponse, error) {
-	rpcResponse := RPCResponse{}
+func (client *rpcClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
 	httpRequest, err := client.newRequest(method, params...)
 	if err != nil {
-		return rpcResponse, err
+		return nil, err
 	}
 
 	httpResponse, err := client.httpClient.Do(httpRequest)
 	if err != nil {
-		return rpcResponse, err
+		return nil, err
 	}
 	defer httpResponse.Body.Close()
 
-	body, err := ioutil.ReadAll(httpResponse.Body)
+	rpcResponse := RPCResponse{}
+	decoder := json.NewDecoder(httpResponse.Body)
+	decoder.UseNumber()
+	err = decoder.Decode(&rpcResponse)
 	if err != nil {
-		return rpcResponse, err
+		return nil, err
 	}
 
-	err = json.Unmarshal(body, &rpcResponse)
-	if err != nil {
-		return rpcResponse, err
-	}
-
-	return rpcResponse, nil
+	return &rpcResponse, nil
 }
 
 func (client *rpcClient) SetAutoIncrementID(flag bool) {
@@ -159,4 +156,64 @@ func (client *rpcClient) newRequest(method string, params ...interface{}) (*http
 	request.Header.Add("Accept", "application/json")
 
 	return request, nil
+}
+
+func (rpcResponse *RPCResponse) getInt() (int64, error) {
+	val, ok := rpcResponse.Result.(json.Number)
+	if !ok {
+		return 0, fmt.Errorf("could not parse int from %s", rpcResponse.Result)
+	}
+
+	i, err := val.Int64()
+	if err != nil {
+		return 0, err
+	}
+
+	return i, nil
+}
+
+func (rpcResponse *RPCResponse) getFloat() (float64, error) {
+	val, ok := rpcResponse.Result.(json.Number)
+	if !ok {
+		return 0, fmt.Errorf("could not parse int from %s", rpcResponse.Result)
+	}
+
+	f, err := val.Float64()
+	if err != nil {
+		return 0, err
+	}
+
+	return f, nil
+}
+
+func (rpcResponse *RPCResponse) getBool() (bool, error) {
+	val, ok := rpcResponse.Result.(bool)
+	if !ok {
+		return false, fmt.Errorf("could not parse int from %s", rpcResponse.Result)
+	}
+
+	return val, nil
+}
+
+func (rpcResponse *RPCResponse) getString() (string, error) {
+	val, ok := rpcResponse.Result.(string)
+	if !ok {
+		return "", fmt.Errorf("could not parse int from %s", rpcResponse.Result)
+	}
+
+	return val, nil
+}
+
+func (rpcResponse *RPCResponse) getObject(toStruct interface{}) error {
+	js, err := json.Marshal(rpcResponse.Result)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(js, toStruct)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
