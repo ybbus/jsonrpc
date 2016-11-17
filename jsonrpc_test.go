@@ -4,8 +4,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
+
+	"time"
 
 	"github.com/onsi/gomega"
 )
@@ -114,6 +117,45 @@ func TestBasicAuthentication(t *testing.T) {
 	req := (<-requestChan).request
 
 	gomega.Expect(req.Header.Get("Authorization")).To(gomega.Equal("Basic YWxleDpzZWNyZXQ="))
+}
+
+func TestCustomHeaders(t *testing.T) {
+	gomega.RegisterTestingT(t)
+
+	rpcClient := NewRPCClient(httpServer.URL)
+
+	rpcClient.SetCustomHeader("Test", "success")
+	rpcClient.Call("add", 1, 2)
+	req := (<-requestChan).request
+
+	gomega.Expect(req.Header.Get("Test")).To(gomega.Equal("success"))
+
+	rpcClient.SetCustomHeader("Test2", "success2")
+	rpcClient.Call("add", 1, 2)
+	req = (<-requestChan).request
+
+	gomega.Expect(req.Header.Get("Test")).To(gomega.Equal("success"))
+	gomega.Expect(req.Header.Get("Test2")).To(gomega.Equal("success2"))
+
+}
+
+func TestCustomHTTPClient(t *testing.T) {
+	gomega.RegisterTestingT(t)
+
+	rpcClient := NewRPCClient(httpServer.URL)
+
+	proxyURL, _ := url.Parse("http://proxy:8080")
+	transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+
+	httpClient := &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: transport,
+	}
+
+	rpcClient.SetHTTPClient(httpClient)
+	rpcClient.Call("add", 1, 2)
+	// req := (<-requestChan).request
+	// TODO: what to test here?
 }
 
 type Person struct {

@@ -11,11 +11,12 @@ import (
 
 // RPCClient returns client that is used to execute json rpc calls over http
 type RPCClient interface {
-	Call(string, ...interface{}) (RPCResponse, error)
-	SetNextID(uint)
-	SetAutoIncrementID(bool)
-	SetBasicAuth(string, string)
-	SetHTTPClient(*http.Client)
+	Call(method string, params ...interface{}) (RPCResponse, error)
+	SetNextID(id uint)
+	SetAutoIncrementID(flag bool)
+	SetBasicAuth(username string, password string)
+	SetHTTPClient(httpClient *http.Client)
+	SetCustomHeader(key string, value string)
 }
 
 // RPCRequest is the structure that is used to build up an json-rpc request.
@@ -48,6 +49,7 @@ type rpcClient struct {
 	endpoint        string
 	httpClient      *http.Client
 	basicAuth       string
+	customHeaders   map[string]string
 	autoIncrementID bool
 	nextID          uint
 	idMutex         sync.Mutex
@@ -60,6 +62,7 @@ func NewRPCClient(endpoint string) RPCClient {
 		httpClient:      http.DefaultClient,
 		autoIncrementID: true,
 		nextID:          0,
+		customHeaders:   make(map[string]string),
 	}
 }
 
@@ -105,6 +108,10 @@ func (client *rpcClient) incrementID() {
 	client.idMutex.Unlock()
 }
 
+func (client *rpcClient) SetCustomHeader(key string, value string) {
+	client.customHeaders[key] = value
+}
+
 func (client *rpcClient) SetBasicAuth(username string, password string) {
 	auth := username + ":" + password
 	client.basicAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
@@ -139,6 +146,10 @@ func (client *rpcClient) newRequest(method string, params ...interface{}) (*http
 	request, err := http.NewRequest("POST", client.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
+	}
+
+	for k, v := range client.customHeaders {
+		request.Header.Add(k, v)
 	}
 
 	if client.basicAuth != "" {

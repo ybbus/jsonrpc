@@ -77,6 +77,17 @@ func main() {
 }
 ```
 
+### Set custom headers
+
+Setting some custom headers (e.g. when using another authentication) is simple:
+```go
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    rpcClient.SetCustomHeader("Authorization", "Bearer abcd1234")
+    response, _ := rpcClient.Call("addNumbers", 1, 2) // send with a custom Auth-Header
+}
+```
+
 ### ID auto-increment
 
 Per default the ID of the json-rpc request increments automatically for each request.
@@ -92,5 +103,25 @@ func main() {
     rpcClient.SetAutoIncrementID(false)
     response, _ = rpcClient.Call("addNumbers", 1, 2) // send with ID == 11
     response, _ = rpcClient.Call("addNumbers", 1, 2) // send with ID == 11
+}
+```
+
+### Set a custom httpClient
+
+If you have some special needs on the http.Client of the standard go library, just provide your own one.
+For example to use a proxy when executing json-rpc calls:
+
+```go
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+
+    proxyURL, _ := url.Parse("http://proxy:8080")
+	transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+
+	httpClient := &http.Client{
+		Transport: transport,
+	}
+
+	rpcClient.SetHTTPClient(httpClient)
 }
 ```
