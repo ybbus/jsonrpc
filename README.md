@@ -1,9 +1,34 @@
-# !!! WIP: Interfaces can change quite often :-) !!!
-
 # jsonrpc
-A go implementation of json-rpc over http. This implementation only provides positional parameters (array of arbitrary types).
+A go implementation of json-rpc 2.0 over http.
 
-## Examples
+## Getting started
+Let's say we want to retrieve a person with a specific id using rpc-json over http.
+Then we want to save this person with new properties.
+We have to provide basic authentication credentials.
+(Error handling is omitted here)
+
+```go
+type Person struct {
+    Id   int `json:"id"`
+    Name string `json:"name"`
+    Age  int `json:"age"`
+}
+
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    rpcClient.SetBasicAuth("alex", "secret")
+
+    response, _ := rpcClient.Call("getPersonById", 123)
+
+    person := Person{}
+    response.getObject(&person)
+
+    person.Age = 33
+    response, _ := rpcClient.Call("updatePersonById", person)
+}
+```
+
+## In detail
 
 ### Generating rpc-json requests
 
