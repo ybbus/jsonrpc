@@ -126,6 +126,10 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	gomega.Expect(intArray).To(gomega.Equal([]int{1, 2, 3}))
 }
 
+func TestResponseErrorWorks(t *testing.T) {
+	// TODO
+}
+
 func TestNotifyWorks(t *testing.T) {
 	gomega.RegisterTestingT(t)
 	rpcClient := NewRPCClient(httpServer.URL)
@@ -137,7 +141,40 @@ func TestNotifyWorks(t *testing.T) {
 	rpcClient.Notify("test", 10, 20, "alex")
 	body := (<-requestChan).body
 	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"test","params":[10,20,"alex"]}`))
+}
 
+func TestBatchRequestWorks(t *testing.T) {
+	gomega.RegisterTestingT(t)
+	rpcClient := NewRPCClient(httpServer.URL)
+
+	req1 := rpcClient.NewRPCRequestObject("test1", "alex")
+	rpcClient.Batch(req1)
+	body := (<-requestChan).body
+	gomega.Expect(body).To(gomega.Equal(`[{"jsonrpc":"2.0","method":"test1","params":["alex"],"id":0}]`))
+
+	notify1 := rpcClient.NewRPCNotifyObject("test2", "alex")
+	rpcClient.Batch(notify1)
+	body = (<-requestChan).body
+	gomega.Expect(body).To(gomega.Equal(`[{"jsonrpc":"2.0","method":"test2","params":["alex"]}]`))
+
+	rpcClient.Batch(req1, notify1)
+	body = (<-requestChan).body
+	gomega.Expect(body).To(gomega.Equal(`[{"jsonrpc":"2.0","method":"test1","params":["alex"],"id":0},{"jsonrpc":"2.0","method":"test2","params":["alex"]}]`))
+}
+
+func TestBatchResponseWorks(t *testing.T) {
+	gomega.RegisterTestingT(t)
+	rpcClient := NewRPCClient(httpServer.URL)
+
+	responseBody = `[{"jsonrpc":"2.0","result": {"name": "alex", "age": 33, "country": "Germany"},"id":0},{"jsonrpc":"2.0","result": 42,"id":1}]`
+	req1 := rpcClient.NewRPCRequestObject("test1", "alex")
+	response, _ := rpcClient.Batch(req1)
+	<-requestChan
+	p := Person{}
+	response[0].GetObject(&p)
+	resp2, _ := response[1].GetInt()
+	gomega.Expect(p).To(gomega.Equal(Person{"alex", 33, "Germany"}))
+	gomega.Expect(int(resp2)).To(gomega.Equal(42))
 }
 
 func TestIDIncremtWorks(t *testing.T) {
@@ -172,6 +209,46 @@ func TestIDIncremtWorks(t *testing.T) {
 	rpcClient.Call("test6", 1, 2)
 	body = (<-requestChan).body
 	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"test6","params":[1,2],"id":12}`))
+}
+
+func TestRequestIDUpdateWorks(t *testing.T) {
+	gomega.RegisterTestingT(t)
+	rpcClient := NewRPCClient(httpServer.URL)
+	rpcClient.SetAutoIncrementID(true) // default
+
+	req1 := rpcClient.NewRPCRequestObject("test", 1, 2, 3)
+	req2 := rpcClient.NewRPCRequestObject("test", 1, 2, 3)
+	gomega.Expect(int(req1.ID)).To(gomega.Equal(0))
+	gomega.Expect(int(req2.ID)).To(gomega.Equal(1))
+
+	rpcClient.UpdateRequestID(req1)
+	rpcClient.UpdateRequestID(req2)
+
+	gomega.Expect(int(req1.ID)).To(gomega.Equal(2))
+	gomega.Expect(int(req2.ID)).To(gomega.Equal(3))
+
+	rpcClient.UpdateRequestID(req2)
+	rpcClient.UpdateRequestID(req1)
+
+	gomega.Expect(int(req1.ID)).To(gomega.Equal(5))
+	gomega.Expect(int(req2.ID)).To(gomega.Equal(4))
+
+	rpcClient.UpdateRequestID(req1)
+	rpcClient.UpdateRequestID(req1)
+
+	gomega.Expect(int(req1.ID)).To(gomega.Equal(7))
+	gomega.Expect(int(req2.ID)).To(gomega.Equal(4))
+
+	rpcClient.SetAutoIncrementID(false)
+
+	rpcClient.UpdateRequestID(req2)
+	rpcClient.UpdateRequestID(req1)
+
+	gomega.Expect(int(req1.ID)).To(gomega.Equal(8))
+	gomega.Expect(int(req2.ID)).To(gomega.Equal(8))
+
+	rpcClient.SetAutoIncrementID(false)
+
 }
 
 func TestBasicAuthentication(t *testing.T) {

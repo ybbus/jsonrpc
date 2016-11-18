@@ -13,7 +13,11 @@ import (
 type RPCClient interface {
 	Call(method string, params ...interface{}) (*RPCResponse, error)
 	Notify(method string, params ...interface{}) error
+	Batch(requests ...interface{}) ([]RPCResponse, error)
+	NewRPCRequestObject(method string, params ...interface{}) *RPCRequest
+	NewRPCNotifyObject(method string, params ...interface{}) *RPCNotify
 	SetNextID(id uint)
+	UpdateRequestID(rpcRequest *RPCRequest)
 	SetAutoIncrementID(flag bool)
 	SetBasicAuth(username string, password string)
 	SetHTTPClient(httpClient *http.Client)
@@ -73,6 +77,40 @@ func NewRPCClient(endpoint string) RPCClient {
 	}
 }
 
+func (client *rpcClient) NewRPCRequestObject(method string, params ...interface{}) *RPCRequest {
+	client.idMutex.Lock()
+	rpcRequest := RPCRequest{
+		ID:      client.nextID,
+		JSONRPC: "2.0",
+		Method:  method,
+		Params:  params,
+	}
+	if client.autoIncrementID == true {
+		client.nextID++
+	}
+	client.idMutex.Unlock()
+
+	if len(params) == 0 {
+		rpcRequest.Params = nil
+	}
+
+	return &rpcRequest
+}
+
+func (client *rpcClient) NewRPCNotifyObject(method string, params ...interface{}) *RPCNotify {
+	rpcNotify := RPCNotify{
+		JSONRPC: "2.0",
+		Method:  method,
+		Params:  params,
+	}
+
+	if len(params) == 0 {
+		rpcNotify.Params = nil
+	}
+
+	return &rpcNotify
+}
+
 func (client *rpcClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
 	httpRequest, err := client.newRequest(false, method, params...)
 	if err != nil {
@@ -110,6 +148,38 @@ func (client *rpcClient) Notify(method string, params ...interface{}) error {
 	return nil
 }
 
+func (client *rpcClient) Batch(requests ...interface{}) ([]RPCResponse, error) {
+	for _, r := range requests {
+		switch r := r.(type) {
+		default:
+			return nil, fmt.Errorf("Invalid parameter: %s", r)
+		case *RPCRequest:
+		case *RPCNotify:
+		}
+	}
+
+	httpRequest, err := client.newBatchRequest(requests...)
+	if err != nil {
+		return nil, err
+	}
+
+	httpResponse, err := client.httpClient.Do(httpRequest)
+	if err != nil {
+		return nil, err
+	}
+	defer httpResponse.Body.Close()
+
+	rpcResponses := []RPCResponse{}
+	decoder := json.NewDecoder(httpResponse.Body)
+	decoder.UseNumber()
+	err = decoder.Decode(&rpcResponses)
+	if err != nil {
+		return nil, err
+	}
+
+	return rpcResponses, nil
+}
+
 func (client *rpcClient) SetAutoIncrementID(flag bool) {
 	client.autoIncrementID = flag
 }
@@ -141,7 +211,7 @@ func (client *rpcClient) SetHTTPClient(httpClient *http.Client) {
 
 func (client *rpcClient) newRequest(notification bool, method string, params ...interface{}) (*http.Request, error) {
 
-	// TODO: easier way to remote ID from RPCRequest without extra struct
+	// TODO: easier way to remove ID from RPCRequest without extra struct
 	var rpcRequest interface{}
 	if notification {
 		notify := RPCNotify{
@@ -192,6 +262,40 @@ func (client *rpcClient) newRequest(notification bool, method string, params ...
 	request.Header.Add("Accept", "application/json")
 
 	return request, nil
+}
+
+func (client *rpcClient) newBatchRequest(requests ...interface{}) (*http.Request, error) {
+
+	body, err := json.Marshal(requests)
+	if err != nil {
+		return nil, err
+	}
+
+	request, err := http.NewRequest("POST", client.endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range client.customHeaders {
+		request.Header.Add(k, v)
+	}
+
+	if client.basicAuth != "" {
+		request.Header.Add("Authorization", client.basicAuth)
+	}
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Accept", "application/json")
+
+	return request, nil
+}
+
+func (client *rpcClient) UpdateRequestID(rpcRequest *RPCRequest) {
+	client.idMutex.Lock()
+	defer client.idMutex.Unlock()
+	rpcRequest.ID = client.nextID
+	if client.autoIncrementID == true {
+		client.nextID++
+	}
 }
 
 func (rpcResponse *RPCResponse) GetInt() (int64, error) {
