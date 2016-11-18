@@ -119,6 +119,30 @@ func main() {
 }
 ```
 
+### Batch rpcjson calls
+
+A jsonrpc batch call encapsulates multiple json-rpc requests in a single rpc-service call.
+It returns an array of results (for all non-notification requests).
+(see: http://www.jsonrpc.org/specification#batch)
+
+Execute two jsonrpc calls and a single notification as batch:
+
+```go
+func main() {
+    rpcClient := NewRPCClient(httpServer.URL)
+
+	req1 := rpcClient.NewRPCRequestObject("addNumbers", 1, 2)
+	req2 := rpcClient.NewRPCRequestObject("getPersonByName", "alex")
+	notify1 := rpcClient.NewRPCNotifyObject("disconnect", true)
+
+	response, _ := rpcClient.Batch(req1, req2, notify1)
+
+    person := Person{}
+    result := response[0].GetInt()
+    response[1].GetObject(&person)
+}
+```
+
 ### Working with rpc-json responses
 
 
