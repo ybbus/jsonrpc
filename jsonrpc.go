@@ -12,6 +12,7 @@ import (
 // RPCClient returns client that is used to execute json rpc calls over http
 type RPCClient interface {
 	Call(method string, params ...interface{}) (*RPCResponse, error)
+	Notify(method string, params ...interface{}) error
 	SetNextID(id uint)
 	SetAutoIncrementID(flag bool)
 	SetBasicAuth(username string, password string)
@@ -26,6 +27,12 @@ type RPCRequest struct {
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params,omitempty"`
 	ID      uint        `json:"id"`
+}
+
+type RPCNotify struct {
+	JSONRPC string      `json:"jsonrpc"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params,omitempty"`
 }
 
 // RPCResponse is the structure that is used to provide the result of an json-rpc request.
@@ -67,7 +74,7 @@ func NewRPCClient(endpoint string) RPCClient {
 }
 
 func (client *rpcClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
-	httpRequest, err := client.newRequest(method, params...)
+	httpRequest, err := client.newRequest(false, method, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +94,20 @@ func (client *rpcClient) Call(method string, params ...interface{}) (*RPCRespons
 	}
 
 	return &rpcResponse, nil
+}
+
+func (client *rpcClient) Notify(method string, params ...interface{}) error {
+	httpRequest, err := client.newRequest(true, method, params...)
+	if err != nil {
+		return err
+	}
+
+	httpResponse, err := client.httpClient.Do(httpRequest)
+	if err != nil {
+		return err
+	}
+	defer httpResponse.Body.Close()
+	return nil
 }
 
 func (client *rpcClient) SetAutoIncrementID(flag bool) {
@@ -118,24 +139,39 @@ func (client *rpcClient) SetHTTPClient(httpClient *http.Client) {
 	client.httpClient = httpClient
 }
 
-func (client *rpcClient) newRequest(method string, params ...interface{}) (*http.Request, error) {
-	client.idMutex.Lock()
-	rpcRequest := RPCRequest{
-		ID:      client.nextID,
-		JSONRPC: "2.0",
-		Method:  method,
-		Params:  params,
-	}
-	if client.autoIncrementID == true {
-		client.nextID++
-	}
-	client.idMutex.Unlock()
+func (client *rpcClient) newRequest(notification bool, method string, params ...interface{}) (*http.Request, error) {
 
-	if len(params) == 0 {
-		rpcRequest.Params = nil
+	// TODO: easier way to remote ID from RPCRequest without extra struct
+	var rpcRequest interface{}
+	if notification {
+		notify := RPCNotify{
+			JSONRPC: "2.0",
+			Method:  method,
+			Params:  params,
+		}
+		if len(params) == 0 {
+			notify.Params = nil
+		}
+		rpcRequest = notify
+	} else {
+		client.idMutex.Lock()
+		request := RPCRequest{
+			ID:      client.nextID,
+			JSONRPC: "2.0",
+			Method:  method,
+			Params:  params,
+		}
+		if client.autoIncrementID == true {
+			client.nextID++
+		}
+		client.idMutex.Unlock()
+		if len(params) == 0 {
+			request.Params = nil
+		}
+		rpcRequest = request
 	}
 
-	body, err := json.Marshal(&rpcRequest)
+	body, err := json.Marshal(rpcRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +194,7 @@ func (client *rpcClient) newRequest(method string, params ...interface{}) (*http
 	return request, nil
 }
 
-func (rpcResponse *RPCResponse) getInt() (int64, error) {
+func (rpcResponse *RPCResponse) GetInt() (int64, error) {
 	val, ok := rpcResponse.Result.(json.Number)
 	if !ok {
 		return 0, fmt.Errorf("could not parse int from %s", rpcResponse.Result)
@@ -172,7 +208,7 @@ func (rpcResponse *RPCResponse) getInt() (int64, error) {
 	return i, nil
 }
 
-func (rpcResponse *RPCResponse) getFloat() (float64, error) {
+func (rpcResponse *RPCResponse) GetFloat() (float64, error) {
 	val, ok := rpcResponse.Result.(json.Number)
 	if !ok {
 		return 0, fmt.Errorf("could not parse int from %s", rpcResponse.Result)
@@ -186,7 +222,7 @@ func (rpcResponse *RPCResponse) getFloat() (float64, error) {
 	return f, nil
 }
 
-func (rpcResponse *RPCResponse) getBool() (bool, error) {
+func (rpcResponse *RPCResponse) GetBool() (bool, error) {
 	val, ok := rpcResponse.Result.(bool)
 	if !ok {
 		return false, fmt.Errorf("could not parse int from %s", rpcResponse.Result)
@@ -195,7 +231,7 @@ func (rpcResponse *RPCResponse) getBool() (bool, error) {
 	return val, nil
 }
 
-func (rpcResponse *RPCResponse) getString() (string, error) {
+func (rpcResponse *RPCResponse) GetString() (string, error) {
 	val, ok := rpcResponse.Result.(string)
 	if !ok {
 		return "", fmt.Errorf("could not parse int from %s", rpcResponse.Result)
@@ -204,7 +240,7 @@ func (rpcResponse *RPCResponse) getString() (string, error) {
 	return val, nil
 }
 
-func (rpcResponse *RPCResponse) getObject(toStruct interface{}) error {
+func (rpcResponse *RPCResponse) GetObject(toStruct interface{}) error {
 	js, err := json.Marshal(rpcResponse.Result)
 	if err != nil {
 		return err
