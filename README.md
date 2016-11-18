@@ -1,6 +1,12 @@
 # jsonrpc
 A go implementation of json-rpc 2.0 over http.
 
+## Installation
+
+```sh
+go get -u github.com/ybbus/jsonrpc
+```
+
 ## Getting started
 Let's say we want to retrieve a person with a specific id using rpc-json over http.
 Then we want to save this person with new properties.
