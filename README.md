@@ -163,16 +163,16 @@ func main() {
     rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
     response, _ := rpcClient.Call("addNumbers", 1, 2)
 
-    result, err := response.getInt()
+    result, err := response.GetInt()
     if err != nil {
         // result seems not to be an integer value
     }
 
     // helpers provided for all primitive types:
-    response.getInt() // int64
-    response.getFloat() // float64
-    response.getString()
-    response.getBool()
+    response.GetInt() // int64
+    response.GetFloat() // float64
+    response.GetString()
+    response.GetBool()
 }
 ```
 
@@ -191,7 +191,7 @@ func main() {
     response, _ := rpcClient.Call("getPersonById", 123)
 
     person := Person{}
-    err := response.getObject(&Person) // expects a rpc-object result value like: {"id": 123, "name": "alex", "age": 33}
+    err := response.GetObject(&Person) // expects a rpc-object result value like: {"id": 123, "name": "alex", "age": 33}
 
     fmt.Println(person.Name)
 }
