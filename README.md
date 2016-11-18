@@ -143,6 +143,21 @@ func main() {
 }
 ```
 
+To update the ID of an existing rpcRequest object:
+```go
+func main() {
+    rpcClient := NewRPCClient(httpServer.URL)
+
+	req1 := rpcClient.NewRPCRequestObject("addNumbers", 1, 2)
+	req2 := rpcClient.NewRPCRequestObject("getPersonByName", "alex")
+	notify1 := rpcClient.NewRPCNotifyObject("disconnect", true)
+
+	response, _ := rpcClient.Batch(req1, req2, notify1)
+
+    rpcClient.UpdateRequestID(req1) // updates id to the next valid id if autoincrement is enabled
+}
+```
+
 ### Working with rpc-json responses
 
 
