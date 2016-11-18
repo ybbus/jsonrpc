@@ -101,6 +101,24 @@ func main() {
 }
 ```
 
+### Notification
+
+A jsonrpc notification is a rpc call to the server without expecting a response.
+Only an error object is returned in case of networkt / http error.
+No id field is set in the request json object. (see: http://www.jsonrpc.org/specification#notification)
+
+Execute an simple notification:
+
+```go
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+    err := rpcClient.Notify("disconnectClient", 123)
+    if err != nil {
+        //error handling goes here
+    }
+}
+```
+
 ### Working with rpc-json responses
 
 
