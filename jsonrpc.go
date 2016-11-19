@@ -18,7 +18,7 @@ type RPCRequest struct {
 	ID      uint        `json:"id"`
 }
 
-// RPCNotify holds information about a jsonrpc notification object.
+// RPCNotification holds information about a jsonrpc notification object.
 // A notification object omits the id field since there will be no server response.
 // See: http://www.jsonrpc.org/specification#notification
 type RPCNotification struct {
@@ -45,7 +45,7 @@ type RPCError struct {
 	Data    interface{} `json:"data"`
 }
 
-// RPCClient is the client that exectues jsonrpc requests over http.
+// RPCClient is the client that sends jsonrpc requests over http.
 type RPCClient struct {
 	endpoint        string
 	httpClient      *http.Client
@@ -231,15 +231,15 @@ func (client *RPCClient) newRequest(notification bool, method string, params ...
 	// TODO: easier way to remove ID from RPCRequest without extra struct
 	var rpcRequest interface{}
 	if notification {
-		notify := RPCNotification{
+		rpcNotification := RPCNotification{
 			JSONRPC: "2.0",
 			Method:  method,
 			Params:  params,
 		}
 		if len(params) == 0 {
-			notify.Params = nil
+			rpcNotification.Params = nil
 		}
-		rpcRequest = notify
+		rpcRequest = rpcNotification
 	} else {
 		client.idMutex.Lock()
 		request := RPCRequest{
