@@ -1,6 +1,15 @@
 # jsonrpc
 A go implementation of json-rpc 2.0 over http.
 
+Supports:
+- requests with arbitrary parameters
+- notifications
+- batch requests
+- convenient response retrival
+- basic authentication
+- custom headers
+- custom http client
+
 ## Installation
 
 ```sh
