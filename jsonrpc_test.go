@@ -134,11 +134,11 @@ func TestNotifyWorks(t *testing.T) {
 	gomega.RegisterTestingT(t)
 	rpcClient := NewRPCClient(httpServer.URL)
 
-	rpcClient.Notify("test", 10)
+	rpcClient.Notification("test", 10)
 	<-requestChan
-	rpcClient.Notify("test", Person{"alex", 33, "Germany"})
+	rpcClient.Notification("test", Person{"alex", 33, "Germany"})
 	<-requestChan
-	rpcClient.Notify("test", 10, 20, "alex")
+	rpcClient.Notification("test", 10, 20, "alex")
 	body := (<-requestChan).body
 	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"test","params":[10,20,"alex"]}`))
 }
@@ -152,7 +152,7 @@ func TestBatchRequestWorks(t *testing.T) {
 	body := (<-requestChan).body
 	gomega.Expect(body).To(gomega.Equal(`[{"jsonrpc":"2.0","method":"test1","params":["alex"],"id":0}]`))
 
-	notify1 := rpcClient.NewRPCNotifyObject("test2", "alex")
+	notify1 := rpcClient.NewRPCNotificationObject("test2", "alex")
 	rpcClient.Batch(notify1)
 	body = (<-requestChan).body
 	gomega.Expect(body).To(gomega.Equal(`[{"jsonrpc":"2.0","method":"test2","params":["alex"]}]`))
