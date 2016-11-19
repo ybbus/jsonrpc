@@ -9,21 +9,6 @@ import (
 	"sync"
 )
 
-// RPCClient returns client that is used to execute json rpc calls over http
-type RPCClient interface {
-	Call(method string, params ...interface{}) (*RPCResponse, error)
-	Notify(method string, params ...interface{}) error
-	Batch(requests ...interface{}) ([]RPCResponse, error)
-	NewRPCRequestObject(method string, params ...interface{}) *RPCRequest
-	NewRPCNotifyObject(method string, params ...interface{}) *RPCNotify
-	SetNextID(id uint)
-	UpdateRequestID(rpcRequest *RPCRequest)
-	SetAutoIncrementID(flag bool)
-	SetBasicAuth(username string, password string)
-	SetHTTPClient(httpClient *http.Client)
-	SetCustomHeader(key string, value string)
-}
-
 // RPCRequest is the structure that is used to build up an json-rpc request.
 // See: http://www.jsonrpc.org/specification#request_object
 type RPCRequest struct {
@@ -33,6 +18,9 @@ type RPCRequest struct {
 	ID      uint        `json:"id"`
 }
 
+// RPCNotify is the structure that is used to build up an json-rpc notify.
+// A notify object omits the id field since there is no response expected.
+// See: http://www.jsonrpc.org/specification#notification
 type RPCNotify struct {
 	JSONRPC string      `json:"jsonrpc"`
 	Method  string      `json:"method"`
@@ -56,7 +44,7 @@ type RPCError struct {
 	Data    interface{} `json:"data"`
 }
 
-type rpcClient struct {
+type RPCClient struct {
 	endpoint        string
 	httpClient      *http.Client
 	basicAuth       string
@@ -67,8 +55,8 @@ type rpcClient struct {
 }
 
 // NewRPCClient returns a new RPCClient interface with default configuration
-func NewRPCClient(endpoint string) RPCClient {
-	return &rpcClient{
+func NewRPCClient(endpoint string) *RPCClient {
+	return &RPCClient{
 		endpoint:        endpoint,
 		httpClient:      http.DefaultClient,
 		autoIncrementID: true,
@@ -77,7 +65,7 @@ func NewRPCClient(endpoint string) RPCClient {
 	}
 }
 
-func (client *rpcClient) NewRPCRequestObject(method string, params ...interface{}) *RPCRequest {
+func (client *RPCClient) NewRPCRequestObject(method string, params ...interface{}) *RPCRequest {
 	client.idMutex.Lock()
 	rpcRequest := RPCRequest{
 		ID:      client.nextID,
@@ -97,7 +85,7 @@ func (client *rpcClient) NewRPCRequestObject(method string, params ...interface{
 	return &rpcRequest
 }
 
-func (client *rpcClient) NewRPCNotifyObject(method string, params ...interface{}) *RPCNotify {
+func (client *RPCClient) NewRPCNotifyObject(method string, params ...interface{}) *RPCNotify {
 	rpcNotify := RPCNotify{
 		JSONRPC: "2.0",
 		Method:  method,
@@ -111,7 +99,7 @@ func (client *rpcClient) NewRPCNotifyObject(method string, params ...interface{}
 	return &rpcNotify
 }
 
-func (client *rpcClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
+func (client *RPCClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
 	httpRequest, err := client.newRequest(false, method, params...)
 	if err != nil {
 		return nil, err
@@ -134,7 +122,7 @@ func (client *rpcClient) Call(method string, params ...interface{}) (*RPCRespons
 	return &rpcResponse, nil
 }
 
-func (client *rpcClient) Notify(method string, params ...interface{}) error {
+func (client *RPCClient) Notify(method string, params ...interface{}) error {
 	httpRequest, err := client.newRequest(true, method, params...)
 	if err != nil {
 		return err
@@ -148,7 +136,7 @@ func (client *rpcClient) Notify(method string, params ...interface{}) error {
 	return nil
 }
 
-func (client *rpcClient) Batch(requests ...interface{}) ([]RPCResponse, error) {
+func (client *RPCClient) Batch(requests ...interface{}) ([]RPCResponse, error) {
 	for _, r := range requests {
 		switch r := r.(type) {
 		default:
@@ -180,36 +168,36 @@ func (client *rpcClient) Batch(requests ...interface{}) ([]RPCResponse, error) {
 	return rpcResponses, nil
 }
 
-func (client *rpcClient) SetAutoIncrementID(flag bool) {
+func (client *RPCClient) SetAutoIncrementID(flag bool) {
 	client.autoIncrementID = flag
 }
 
-func (client *rpcClient) SetNextID(id uint) {
+func (client *RPCClient) SetNextID(id uint) {
 	client.idMutex.Lock()
 	client.nextID = id
 	client.idMutex.Unlock()
 }
 
-func (client *rpcClient) incrementID() {
+func (client *RPCClient) incrementID() {
 	client.idMutex.Lock()
 	client.nextID++
 	client.idMutex.Unlock()
 }
 
-func (client *rpcClient) SetCustomHeader(key string, value string) {
+func (client *RPCClient) SetCustomHeader(key string, value string) {
 	client.customHeaders[key] = value
 }
 
-func (client *rpcClient) SetBasicAuth(username string, password string) {
+func (client *RPCClient) SetBasicAuth(username string, password string) {
 	auth := username + ":" + password
 	client.basicAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
-func (client *rpcClient) SetHTTPClient(httpClient *http.Client) {
+func (client *RPCClient) SetHTTPClient(httpClient *http.Client) {
 	client.httpClient = httpClient
 }
 
-func (client *rpcClient) newRequest(notification bool, method string, params ...interface{}) (*http.Request, error) {
+func (client *RPCClient) newRequest(notification bool, method string, params ...interface{}) (*http.Request, error) {
 
 	// TODO: easier way to remove ID from RPCRequest without extra struct
 	var rpcRequest interface{}
@@ -264,7 +252,7 @@ func (client *rpcClient) newRequest(notification bool, method string, params ...
 	return request, nil
 }
 
-func (client *rpcClient) newBatchRequest(requests ...interface{}) (*http.Request, error) {
+func (client *RPCClient) newBatchRequest(requests ...interface{}) (*http.Request, error) {
 
 	body, err := json.Marshal(requests)
 	if err != nil {
@@ -289,7 +277,7 @@ func (client *rpcClient) newBatchRequest(requests ...interface{}) (*http.Request
 	return request, nil
 }
 
-func (client *rpcClient) UpdateRequestID(rpcRequest *RPCRequest) {
+func (client *RPCClient) UpdateRequestID(rpcRequest *RPCRequest) {
 	client.idMutex.Lock()
 	defer client.idMutex.Unlock()
 	rpcRequest.ID = client.nextID
