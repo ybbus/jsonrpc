@@ -311,6 +311,7 @@ func (client *RPCClient) newBatchRequest(requests ...interface{}) (*http.Request
 }
 
 // UpdateRequestID updates the ID of an RPCRequest structure.
+//
 // This is used if a (batch) request is sent several times and the request should get an updated id.
 func (client *RPCClient) UpdateRequestID(rpcRequest *RPCRequest) {
 	client.idMutex.Lock()
@@ -321,12 +322,24 @@ func (client *RPCClient) UpdateRequestID(rpcRequest *RPCRequest) {
 	}
 }
 
-// GetInt converts the rpc response to an int64 and returns it.
+// GetInt converts the rpc response to an int and returns it.
+//
+// This is a convenient function. Int could be 32 or 64 bit, depending on the architecture the code is running on.
+// For a deterministic result use GetInt64()
+//
 // If result was not an integer an error is returned.
-func (rpcResponse *RPCResponse) GetInt() (int64, error) {
+func (rpcResponse *RPCResponse) GetInt() (int, error) {
+	i, err := rpcResponse.GetInt64()
+	return int(i), err
+}
+
+// GetInt64 converts the rpc response to an int64 and returns it.
+//
+// If result was not an integer an error is returned.
+func (rpcResponse *RPCResponse) GetInt64() (int64, error) {
 	val, ok := rpcResponse.Result.(json.Number)
 	if !ok {
-		return 0, fmt.Errorf("could not parse int from %s", rpcResponse.Result)
+		return 0, fmt.Errorf("could not parse int64 from %s", rpcResponse.Result)
 	}
 
 	i, err := val.Int64()
@@ -337,13 +350,13 @@ func (rpcResponse *RPCResponse) GetInt() (int64, error) {
 	return i, nil
 }
 
-// GetFloat converts the rpc response to an float64 and returns it.
+// GetFloat64 converts the rpc response to an float64 and returns it.
 //
 // If result was not an float64 an error is returned.
-func (rpcResponse *RPCResponse) GetFloat() (float64, error) {
+func (rpcResponse *RPCResponse) GetFloat64() (float64, error) {
 	val, ok := rpcResponse.Result.(json.Number)
 	if !ok {
-		return 0, fmt.Errorf("could not parse int from %s", rpcResponse.Result)
+		return 0, fmt.Errorf("could not parse float64 from %s", rpcResponse.Result)
 	}
 
 	f, err := val.Float64()
@@ -387,13 +400,13 @@ func (rpcResponse *RPCResponse) GetString() (string, error) {
 //    Age int
 //    Country string
 //  }
-func (rpcResponse *RPCResponse) GetObject(toStruct interface{}) error {
+func (rpcResponse *RPCResponse) GetObject(toType interface{}) error {
 	js, err := json.Marshal(rpcResponse.Result)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(js, toStruct)
+	err = json.Unmarshal(js, toType)
 	if err != nil {
 		return err
 	}

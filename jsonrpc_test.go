@@ -86,16 +86,23 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	responseBody = `{"jsonrpc":"2.0","result":3,"id":0}`
 	response, _ := rpcClient.Call("test") // Call param does not matter, since response does not depend on request
 	<-requestChan
-	var intResult int64
+	var int64Result int64
+	int64Result, _ = response.GetInt64()
+	gomega.Expect(int64Result).To(gomega.Equal(int64(3)))
+
+	responseBody = `{"jsonrpc":"2.0","result":3,"id":0}`
+	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
+	<-requestChan
+	var intResult int
 	intResult, _ = response.GetInt()
-	gomega.Expect(int(intResult)).To(gomega.Equal(3))
+	gomega.Expect(intResult).To(gomega.Equal(3))
 
 	responseBody = `{"jsonrpc":"2.0","result": 3.7,"id":0}`
 	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
 	<-requestChan
-	var floatResult float64
-	floatResult, _ = response.GetFloat()
-	gomega.Expect(floatResult).To(gomega.Equal(3.7))
+	var float64Result float64
+	float64Result, _ = response.GetFloat64()
+	gomega.Expect(float64Result).To(gomega.Equal(3.7))
 
 	responseBody = `{"jsonrpc":"2.0","result": true,"id":0}`
 	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
@@ -110,6 +117,13 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	var person = Person{}
 	response.GetObject(&person)
 	gomega.Expect(person).To(gomega.Equal(Person{"alex", 33, "Germany"}))
+
+	responseBody = `{"jsonrpc":"2.0","result": 3,"id":0}`
+	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
+	<-requestChan
+	var number int
+	response.GetObject(&number)
+	gomega.Expect(int(number)).To(gomega.Equal(3))
 
 	responseBody = `{"jsonrpc":"2.0","result": [{"name": "alex", "age": 33, "country": "Germany"}, {"name": "Ferolaz", "age": 333, "country": "Azeroth"}],"id":0}`
 	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
@@ -172,9 +186,9 @@ func TestBatchResponseWorks(t *testing.T) {
 	<-requestChan
 	p := Person{}
 	response[0].GetObject(&p)
-	resp2, _ := response[1].GetInt()
+	resp2, _ := response[1].GetInt64()
 	gomega.Expect(p).To(gomega.Equal(Person{"alex", 33, "Germany"}))
-	gomega.Expect(int(resp2)).To(gomega.Equal(42))
+	gomega.Expect(resp2).To(gomega.Equal(int64(42)))
 }
 
 func TestIDIncremtWorks(t *testing.T) {
