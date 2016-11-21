@@ -141,7 +141,14 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 }
 
 func TestResponseErrorWorks(t *testing.T) {
-	// TODO
+	gomega.RegisterTestingT(t)
+	rpcClient := NewRPCClient(httpServer.URL)
+	rpcClient.SetAutoIncrementID(false)
+
+	responseBody = `{"jsonrpc":"2.0","error": {"code": -123, "message": "something wrong"},"id":0}`
+	response, _ := rpcClient.Call("test") // Call param does not matter, since response does not depend on request
+	<-requestChan
+	gomega.Expect(*response.Error).To(gomega.Equal(RPCError{-123, "something wrong", nil}))
 }
 
 func TestNotifyWorks(t *testing.T) {
