@@ -1,6 +1,4 @@
-/*
-	Package jsonrpc provides an rpcclient that sends jsonrpc requests and receives jsonrpc responses using http.
-*/
+// Package jsonrpc provides an rpcclient that sends jsonrpc requests and receives jsonrpc responses using http.
 package jsonrpc
 
 import (
@@ -57,7 +55,6 @@ type RPCError struct {
 type RPCClient struct {
 	endpoint        string
 	httpClient      *http.Client
-	basicAuth       string
 	customHeaders   map[string]string
 	autoIncrementID bool
 	nextID          uint
@@ -226,11 +223,11 @@ func (client *RPCClient) SetCustomHeader(key string, value string) {
 // To reset / disable authentication just set username or password to empty string.
 func (client *RPCClient) SetBasicAuth(username string, password string) {
 	if username == "" || password == "" {
-		client.basicAuth = ""
+		delete(client.customHeaders, "Authorization")
 		return
 	}
 	auth := username + ":" + password
-	client.basicAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+	client.customHeaders["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
 // SetHTTPClient can be used to set a custom http.Client.
@@ -285,9 +282,6 @@ func (client *RPCClient) newRequest(notification bool, method string, params ...
 		request.Header.Add(k, v)
 	}
 
-	if client.basicAuth != "" {
-		request.Header.Add("Authorization", client.basicAuth)
-	}
 	request.Header.Add("Content-Type", "application/json")
 	request.Header.Add("Accept", "application/json")
 
@@ -310,9 +304,6 @@ func (client *RPCClient) newBatchRequest(requests ...interface{}) (*http.Request
 		request.Header.Add(k, v)
 	}
 
-	if client.basicAuth != "" {
-		request.Header.Add("Authorization", client.basicAuth)
-	}
 	request.Header.Add("Content-Type", "application/json")
 	request.Header.Add("Accept", "application/json")
 
