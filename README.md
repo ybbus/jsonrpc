@@ -1,4 +1,4 @@
-# jsonrpc
+# JSON-RPC 2.0 Client for golang
 A go implementation of an rpc client using json as data format over http.
 The implementation is based on the JSON-RPC 2.0 specification: http://www.jsonrpc.org/specification
 
