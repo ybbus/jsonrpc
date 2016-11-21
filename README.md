@@ -217,8 +217,9 @@ func main() {
     }
 
     // helpers provided for all primitive types:
-    response.GetInt() // int64
-    response.GetFloat() // float64
+    response.GetInt() // int32 or int64 depends on architecture / implementation
+    response.GetInt64()
+    response.GetFloat64()
     response.GetString()
     response.GetBool()
 }
