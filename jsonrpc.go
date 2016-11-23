@@ -31,7 +31,7 @@ type RPCNotification struct {
 }
 
 // RPCResponse represents a jsonrpc response object.
-// If no rpc specific error occured Error field is nil.
+// If no rpc specific error occurred Error field is nil.
 //
 // See: http://www.jsonrpc.org/specification#response_object
 type RPCResponse struct {
@@ -41,7 +41,7 @@ type RPCResponse struct {
 	ID      int         `json:"id"`
 }
 
-// RPCError represents a jsonrpc error object if an rpc error occured.
+// RPCError represents a jsonrpc error object if an rpc error occurred.
 //
 // See: http://www.jsonrpc.org/specification#error_object
 type RPCError struct {
@@ -231,7 +231,7 @@ func (client *RPCClient) SetBasicAuth(username string, password string) {
 }
 
 // SetHTTPClient can be used to set a custom http.Client.
-// This can be usefull for example if you want to customize the http.Client behaviour (e.g. proxy settings)
+// This can be useful for example if you want to customize the http.Client behaviour (e.g. proxy settings)
 func (client *RPCClient) SetHTTPClient(httpClient *http.Client) {
 	client.httpClient = httpClient
 }
