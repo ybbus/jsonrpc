@@ -1,4 +1,4 @@
-// Package jsonrpc provides an rpcclient that sends jsonrpc requests and receives jsonrpc responses using http.
+// Package jsonrpc provides an jsonrpc 2.0 client that sends jsonrpc requests and receives jsonrpc responses using http.
 package jsonrpc
 
 import (
@@ -38,7 +38,7 @@ type RPCResponse struct {
 	JSONRPC string      `json:"jsonrpc"`
 	Result  interface{} `json:"result,omitempty"`
 	Error   *RPCError   `json:"error,omitempty"`
-	ID      int         `json:"id"`
+	ID      uint        `json:"id"`
 }
 
 // RPCError represents a jsonrpc error object if an rpc error occurred.
@@ -144,7 +144,7 @@ func (client *RPCClient) Call(method string, params ...interface{}) (*RPCRespons
 	return &rpcResponse, nil
 }
 
-// Notification sends a jsonrpc request to the rpc-service. The difference to Call() is that this call does not expect a response.
+// Notification sends a jsonrpc request to the rpc-service. The difference to Call() is that this request does not expect a response.
 // The ID field of the request is omitted.
 func (client *RPCClient) Notification(method string, params ...interface{}) error {
 	httpRequest, err := client.newRequest(true, method, params...)
@@ -160,9 +160,12 @@ func (client *RPCClient) Notification(method string, params ...interface{}) erro
 	return nil
 }
 
-// Batch sends a jsonrpc batch request to the server.
-// The parameter is a list of requests the could be one of RPCRequest and RPCNotification.
-// The batch requests returns a list of responses.
+// Batch sends a jsonrpc batch request to the rpc-service.
+// The parameter is a list of requests the could be one of:
+//	RPCRequest
+//	RPCNotification.
+//
+// The batch requests returns a list of RPCResponse structs.
 func (client *RPCClient) Batch(requests ...interface{}) ([]RPCResponse, error) {
 	for _, r := range requests {
 		switch r := r.(type) {
@@ -200,27 +203,26 @@ func (client *RPCClient) SetAutoIncrementID(flag bool) {
 	client.autoIncrementID = flag
 }
 
-// SetNextID can be used to set the next id / reset the id.
+// SetNextID can be used to manually set the next id / reset the id.
 func (client *RPCClient) SetNextID(id uint) {
 	client.idMutex.Lock()
 	client.nextID = id
 	client.idMutex.Unlock()
 }
 
-func (client *RPCClient) incrementID() {
-	client.idMutex.Lock()
-	client.nextID++
-	client.idMutex.Unlock()
-}
-
 // SetCustomHeader is used to set a custom header for each rpc request.
-// e.g. set Authorization Bearer here.
+// You could for example set the Authorization Bearer here.
 func (client *RPCClient) SetCustomHeader(key string, value string) {
 	client.customHeaders[key] = value
 }
 
+// UnsetCustomHeader is used to removes a custom header that was added before.
+func (client *RPCClient) UnsetCustomHeader(key string) {
+	delete(client.customHeaders, key)
+}
+
 // SetBasicAuth is a helper function that sets the header for the given basic authentication credentials.
-// To reset / disable authentication just set username or password to empty string.
+// To reset / disable authentication just set username or password to an empty string value.
 func (client *RPCClient) SetBasicAuth(username string, password string) {
 	if username == "" || password == "" {
 		delete(client.customHeaders, "Authorization")
@@ -312,7 +314,9 @@ func (client *RPCClient) newBatchRequest(requests ...interface{}) (*http.Request
 
 // UpdateRequestID updates the ID of an RPCRequest structure.
 //
-// This is used if a (batch) request is sent several times and the request should get an updated id.
+// This is used if a request is sent another time and the request should get an updated id.
+//
+// This does only make sense when used on with Batch() since Call() and Notififcation() do update the id automatically.
 func (client *RPCClient) UpdateRequestID(rpcRequest *RPCRequest) {
 	client.idMutex.Lock()
 	defer client.idMutex.Unlock()
@@ -325,7 +329,7 @@ func (client *RPCClient) UpdateRequestID(rpcRequest *RPCRequest) {
 // GetInt converts the rpc response to an int and returns it.
 //
 // This is a convenient function. Int could be 32 or 64 bit, depending on the architecture the code is running on.
-// For a deterministic result use GetInt64()
+// For a deterministic result use GetInt64().
 //
 // If result was not an integer an error is returned.
 func (rpcResponse *RPCResponse) GetInt() (int, error) {
@@ -393,7 +397,8 @@ func (rpcResponse *RPCResponse) GetString() (string, error) {
 
 // GetObject converts the rpc response to an object (e.g. a struct) and returns it.
 // The parameter should be a structure that can hold the data of the response object.
-// e.g. if a the following return value is expected: {"name": "alex", age: 33, "country": "Germany"}
+//
+// For example if the following json return value is expected: {"name": "alex", age: 33, "country": "Germany"}
 // the struct should look like
 //  type Person struct {
 //    Name string

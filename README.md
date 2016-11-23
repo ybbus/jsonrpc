@@ -148,8 +148,11 @@ func main() {
 	response, _ := rpcClient.Batch(req1, req2, notify1)
 
     person := Person{}
-    result := response[0].GetInt()
-    response[1].GetObject(&person)
+
+    // TODO: helper function to get corresponding response
+	if response[0].ID == req1.ID {
+
+	}
 }
 ```
 
