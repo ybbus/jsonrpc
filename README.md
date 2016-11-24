@@ -6,7 +6,7 @@ Supports:
 - requests with arbitrary parameters
 - notifications
 - batch requests
-- convenient response retrival
+- convenient response retrieval
 - basic authentication
 - custom headers
 - custom http client
