@@ -289,6 +289,11 @@ func TestBatchRequestWorks(t *testing.T) {
 	body = (<-requestChan).body
 	gomega.Expect(body).To(gomega.Equal(`[{"jsonrpc":"2.0","method":"test1","params":["alex"],"id":0},{"jsonrpc":"2.0","method":"test2","params":["alex"]}]`))
 
+	requests := []interface{}{req1, notify1}
+	rpcClient.Batch(requests...)
+	body = (<-requestChan).body
+	gomega.Expect(body).To(gomega.Equal(`[{"jsonrpc":"2.0","method":"test1","params":["alex"],"id":0},{"jsonrpc":"2.0","method":"test2","params":["alex"]}]`))
+
 	invalid := &Person{"alex", 33, "germany"}
 	_, err := rpcClient.Batch(invalid, notify1)
 	gomega.Expect(err).To(gomega.Not(gomega.Equal(nil)))
