@@ -122,7 +122,7 @@ Execute an simple notification:
 ```go
 func main() {
     rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
-    err := rpcClient.Notify("disconnectClient", 123)
+    err := rpcClient.Notification("disconnectClient", 123)
     if err != nil {
         //error handling goes here
     }
@@ -143,7 +143,7 @@ func main() {
 
 	req1 := rpcClient.NewRPCRequestObject("addNumbers", 1, 2)
 	req2 := rpcClient.NewRPCRequestObject("getPersonByName", "alex")
-	notify1 := rpcClient.NewRPCNotifyObject("disconnect", true)
+	notify1 := rpcClient.NewRPCNotificationObject("disconnect", true)
 
 	response, _ := rpcClient.Batch(req1, req2, notify1)
 
