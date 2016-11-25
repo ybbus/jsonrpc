@@ -145,14 +145,11 @@ func main() {
 	req2 := rpcClient.NewRPCRequestObject("getPersonByName", "alex")
 	notify1 := rpcClient.NewRPCNotificationObject("disconnect", true)
 
-	response, _ := rpcClient.Batch(req1, req2, notify1)
+	responses, _ := rpcClient.Batch(req1, req2, notify1)
 
     person := Person{}
-
-    // TODO: helper function to get corresponding response
-	if response[0].ID == req1.ID {
-
-	}
+    response2, _ := responses.GetResponseOf(req2)
+    response2.GetObject(&person)
 }
 ```
 
@@ -165,7 +162,7 @@ func main() {
 	req2 := rpcClient.NewRPCRequestObject("getPersonByName", "alex")
 	notify1 := rpcClient.NewRPCNotifyObject("disconnect", true)
 
-	response, _ := rpcClient.Batch(req1, req2, notify1)
+	responses, _ := rpcClient.Batch(req1, req2, notify1)
 
     rpcClient.UpdateRequestID(req1) // updates id to the next valid id if autoincrement is enabled
 }
