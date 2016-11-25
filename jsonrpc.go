@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -39,6 +40,13 @@ type RPCResponse struct {
 	Result  interface{} `json:"result,omitempty"`
 	Error   *RPCError   `json:"error,omitempty"`
 	ID      uint        `json:"id"`
+}
+
+// BatchResponse a list of jsonrpc response objects as a result of a batch request
+//
+// if you are interested in the response of a specific request use: GetResponseOf(request)
+type BatchResponse struct {
+	rpcResponses []RPCResponse
 }
 
 // RPCError represents a jsonrpc error object if an rpc error occurred.
@@ -166,7 +174,7 @@ func (client *RPCClient) Notification(method string, params ...interface{}) erro
 //	RPCNotification.
 //
 // The batch requests returns a list of RPCResponse structs.
-func (client *RPCClient) Batch(requests ...interface{}) ([]RPCResponse, error) {
+func (client *RPCClient) Batch(requests ...interface{}) (*BatchResponse, error) {
 	for _, r := range requests {
 		switch r := r.(type) {
 		default:
@@ -195,7 +203,7 @@ func (client *RPCClient) Batch(requests ...interface{}) ([]RPCResponse, error) {
 		return nil, err
 	}
 
-	return rpcResponses, nil
+	return &BatchResponse{rpcResponses: rpcResponses}, nil
 }
 
 // SetAutoIncrementID if set to true, the id field of an rpcjson request will be incremented automatically
@@ -235,6 +243,9 @@ func (client *RPCClient) SetBasicAuth(username string, password string) {
 // SetHTTPClient can be used to set a custom http.Client.
 // This can be useful for example if you want to customize the http.Client behaviour (e.g. proxy settings)
 func (client *RPCClient) SetHTTPClient(httpClient *http.Client) {
+	if httpClient == nil {
+		panic("httpClient cannot be nil")
+	}
 	client.httpClient = httpClient
 }
 
@@ -318,6 +329,9 @@ func (client *RPCClient) newBatchRequest(requests ...interface{}) (*http.Request
 //
 // This does only make sense when used on with Batch() since Call() and Notififcation() do update the id automatically.
 func (client *RPCClient) UpdateRequestID(rpcRequest *RPCRequest) {
+	if rpcRequest == nil {
+		return
+	}
 	client.idMutex.Lock()
 	defer client.idMutex.Unlock()
 	rpcRequest.ID = client.nextID
@@ -417,4 +431,20 @@ func (rpcResponse *RPCResponse) GetObject(toType interface{}) error {
 	}
 
 	return nil
+}
+
+// GetResponseOf returns the rpc reponse of the corresponding request by matching the id.
+//
+// For this method to work, autoincrementID should be set to true (default).
+func (batchResponse *BatchResponse) GetResponseOf(request *RPCRequest) (*RPCResponse, error) {
+	if request == nil {
+		return nil, errors.New("parameter cannot be nil")
+	}
+	for _, elem := range batchResponse.rpcResponses {
+		if elem.ID == request.ID {
+			return &elem, nil
+		}
+	}
+
+	return nil, fmt.Errorf("element with id %d not found", request.ID)
 }

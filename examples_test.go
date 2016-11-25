@@ -94,11 +94,10 @@ func ExampleRPCClient_Batch() {
 
 	req1 := rpcClient.NewRPCRequestObject("addNumbers", 1, 2, 3)
 	req2 := rpcClient.NewRPCRequestObject("getTimestamp")
-	response, _ := rpcClient.Batch(req1, req2)
+	responses, _ := rpcClient.Batch(req1, req2)
 
-	// TODO: helper function to get corresponding response
-	if response[0].ID == req1.ID {
+	response, _ := responses.GetResponseOf(req2)
+	timestamp, _ := response.GetInt()
 
-	}
-
+	fmt.Println(timestamp)
 }

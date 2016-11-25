@@ -303,15 +303,17 @@ func TestBatchResponseWorks(t *testing.T) {
 	gomega.RegisterTestingT(t)
 	rpcClient := NewRPCClient(httpServer.URL)
 
-	responseBody = `[{"jsonrpc":"2.0","result": {"name": "alex", "age": 33, "country": "Germany"},"id":0},{"jsonrpc":"2.0","result": 42,"id":1}]`
-	req1 := rpcClient.NewRPCRequestObject("test1", "alex")
-	response, _ := rpcClient.Batch(req1)
+	responseBody = `[{"jsonrpc":"2.0","result": 1,"id":0},{"jsonrpc":"2.0","result": 2,"id":1},{"jsonrpc":"2.0","result": 3,"id":3}]`
+	req1 := rpcClient.NewRPCRequestObject("test1", 1)
+	req2 := rpcClient.NewRPCRequestObject("test2", 2)
+	req3 := rpcClient.NewRPCRequestObject("test3", 3)
+	responses, _ := rpcClient.Batch(req1, req2, req3)
 	<-requestChan
-	p := Person{}
-	response[0].GetObject(&p)
-	resp2, _ := response[1].GetInt64()
-	gomega.Expect(p).To(gomega.Equal(Person{"alex", 33, "Germany"}))
-	gomega.Expect(resp2).To(gomega.Equal(int64(42)))
+
+	resp2, _ := responses.GetResponseOf(req2)
+	res2, _ := resp2.GetInt()
+
+	gomega.Expect(res2).To(gomega.Equal(2))
 }
 
 func TestIDIncremtWorks(t *testing.T) {
