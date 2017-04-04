@@ -433,7 +433,7 @@ func (rpcResponse *RPCResponse) GetObject(toType interface{}) error {
 	return nil
 }
 
-// GetResponseOf returns the rpc reponse of the corresponding request by matching the id.
+// GetResponseOf returns the rpc response of the corresponding request by matching the id.
 //
 // For this method to work, autoincrementID should be set to true (default).
 func (batchResponse *BatchResponse) GetResponseOf(request *RPCRequest) (*RPCResponse, error) {
