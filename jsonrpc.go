@@ -86,6 +86,7 @@ func NewRPCClient(endpoint string) *RPCClient {
 // It is mainly used when building batch requests. For single requests use RPCClient.Call().
 // RPCRequest struct can also be created directly, but this function sets the ID and the jsonrpc field to the correct values.
 func (client *RPCClient) NewRPCRequestObject(method string, params ...interface{}) *RPCRequest {
+	client.idMutex.Lock()
 	rpcRequest := RPCRequest{
 		ID:      client.nextID,
 		JSONRPC: "2.0",
@@ -95,6 +96,7 @@ func (client *RPCClient) NewRPCRequestObject(method string, params ...interface{
 	if client.autoIncrementID == true {
 		client.nextID++
 	}
+	client.idMutex.Unlock()
 
 	if len(params) == 0 {
 		rpcRequest.Params = nil
@@ -212,7 +214,9 @@ func (client *RPCClient) SetAutoIncrementID(flag bool) {
 
 // SetNextID can be used to manually set the next id / reset the id.
 func (client *RPCClient) SetNextID(id uint) {
+	client.idMutex.Lock()
 	client.nextID = id
+	client.idMutex.Unlock()
 }
 
 // SetCustomHeader is used to set a custom header for each rpc request.
@@ -261,6 +265,7 @@ func (client *RPCClient) newRequest(notification bool, method string, params ...
 		}
 		rpcRequest = rpcNotification
 	} else {
+		client.idMutex.Lock()
 		request := RPCRequest{
 			ID:      client.nextID,
 			JSONRPC: "2.0",
@@ -270,6 +275,7 @@ func (client *RPCClient) newRequest(notification bool, method string, params ...
 		if client.autoIncrementID == true {
 			client.nextID++
 		}
+		client.idMutex.Unlock()
 		if len(params) == 0 {
 			request.Params = nil
 		}
@@ -327,6 +333,8 @@ func (client *RPCClient) UpdateRequestID(rpcRequest *RPCRequest) {
 	if rpcRequest == nil {
 		return
 	}
+	client.idMutex.Lock()
+	defer client.idMutex.Unlock()
 	rpcRequest.ID = client.nextID
 	if client.autoIncrementID == true {
 		client.nextID++
