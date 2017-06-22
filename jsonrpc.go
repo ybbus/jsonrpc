@@ -66,7 +66,7 @@ type RPCClient struct {
 	customHeaders   map[string]string
 	autoIncrementID bool
 	nextID          uint
-	idMutex         sync.Mutex
+	idMutex         *sync.Mutex
 }
 
 // NewRPCClient returns a new RPCClient instance with default configuration (no custom headers, default http.Client, autoincrement ids).
@@ -78,6 +78,7 @@ func NewRPCClient(endpoint string) *RPCClient {
 		autoIncrementID: true,
 		nextID:          0,
 		customHeaders:   make(map[string]string),
+		idMutex:         &sync.Mutex{},
 	}
 }
 
