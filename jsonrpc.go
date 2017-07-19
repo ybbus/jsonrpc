@@ -391,7 +391,7 @@ func (rpcResponse *RPCResponse) GetFloat64() (float64, error) {
 func (rpcResponse *RPCResponse) GetBool() (bool, error) {
 	val, ok := rpcResponse.Result.(bool)
 	if !ok {
-		return false, fmt.Errorf("could not parse int from %s", rpcResponse.Result)
+		return false, fmt.Errorf("could not parse bool from %s", rpcResponse.Result)
 	}
 
 	return val, nil
@@ -403,7 +403,7 @@ func (rpcResponse *RPCResponse) GetBool() (bool, error) {
 func (rpcResponse *RPCResponse) GetString() (string, error) {
 	val, ok := rpcResponse.Result.(string)
 	if !ok {
-		return "", fmt.Errorf("could not parse int from %s", rpcResponse.Result)
+		return "", fmt.Errorf("could not parse string from %s", rpcResponse.Result)
 	}
 
 	return val, nil
