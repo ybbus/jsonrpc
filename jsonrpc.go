@@ -66,7 +66,7 @@ type RPCClient struct {
 	customHeaders   map[string]string
 	autoIncrementID bool
 	nextID          uint
-	idMutex         *sync.Mutex
+	idMutex         sync.Mutex
 }
 
 // NewRPCClient returns a new RPCClient instance with default configuration (no custom headers, default http.Client, autoincrement ids).
@@ -78,7 +78,6 @@ func NewRPCClient(endpoint string) *RPCClient {
 		autoIncrementID: true,
 		nextID:          0,
 		customHeaders:   make(map[string]string),
-		idMutex:         &sync.Mutex{},
 	}
 }
 
@@ -412,7 +411,7 @@ func (rpcResponse *RPCResponse) GetFloat64() (float64, error) {
 func (rpcResponse *RPCResponse) GetBool() (bool, error) {
 	val, ok := rpcResponse.Result.(bool)
 	if !ok {
-		return false, fmt.Errorf("could not parse int from %s", rpcResponse.Result)
+		return false, fmt.Errorf("could not parse bool from %s", rpcResponse.Result)
 	}
 
 	return val, nil
@@ -424,7 +423,7 @@ func (rpcResponse *RPCResponse) GetBool() (bool, error) {
 func (rpcResponse *RPCResponse) GetString() (string, error) {
 	val, ok := rpcResponse.Result.(string)
 	if !ok {
-		return "", fmt.Errorf("could not parse int from %s", rpcResponse.Result)
+		return "", fmt.Errorf("could not parse string from %s", rpcResponse.Result)
 	}
 
 	return val, nil
