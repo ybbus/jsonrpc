@@ -130,10 +130,12 @@ func (client *RPCClient) NewRPCNotificationObject(method string, params ...inter
 //
 // If the request was successful the Error field is nil and the Result field of the RPCRespnse struct contains the rpc result.
 func (client *RPCClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
-	if len(params) == 0 {
-		params = nil
+	// Ensure that params are nil and will be omitted from JSON if not specified.
+	var p interface{}
+	if len(params) != 0 {
+		p = params
 	}
-	httpRequest, err := client.newRequest(false, method, params)
+	httpRequest, err := client.newRequest(false, method, p)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +278,6 @@ func (client *RPCClient) SetHTTPClient(httpClient *http.Client) {
 }
 
 func (client *RPCClient) newRequest(notification bool, method string, params interface{}) (*http.Request, error) {
-
 	// TODO: easier way to remove ID from RPCRequest without extra struct
 	var rpcRequest interface{}
 	if notification {
