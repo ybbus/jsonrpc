@@ -130,12 +130,37 @@ func (client *RPCClient) NewRPCNotificationObject(method string, params ...inter
 //
 // If the request was successful the Error field is nil and the Result field of the RPCRespnse struct contains the rpc result.
 func (client *RPCClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
-	httpRequest, err := client.newRequest(false, method, params...)
+	// Ensure that params are nil and will be omitted from JSON if not specified.
+	var p interface{}
+	if len(params) != 0 {
+		p = params
+	}
+	httpRequest, err := client.newRequest(false, method, p)
 	if err != nil {
 		return nil, err
 	}
+	return client.doCall(httpRequest)
+}
 
-	httpResponse, err := client.httpClient.Do(httpRequest)
+// CallNamed sends an jsonrpc request over http to the rpc-service url that was provided on client creation.
+// This differs from Call() by sending named, rather than positional, arguments.
+//
+// If something went wrong on the network / http level or if json parsing failed it returns an error.
+//
+// If something went wrong on the rpc-service / protocol level the Error field of the returned RPCResponse is set
+// and contains information about the error.
+//
+// If the request was successful the Error field is nil and the Result field of the RPCRespnse struct contains the rpc result.
+func (client *RPCClient) CallNamed(method string, params map[string]interface{}) (*RPCResponse, error) {
+	httpRequest, err := client.newRequest(false, method, params)
+	if err != nil {
+		return nil, err
+	}
+	return client.doCall(httpRequest)
+}
+
+func (client *RPCClient) doCall(req *http.Request) (*RPCResponse, error) {
+	httpResponse, err := client.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +180,10 @@ func (client *RPCClient) Call(method string, params ...interface{}) (*RPCRespons
 // Notification sends a jsonrpc request to the rpc-service. The difference to Call() is that this request does not expect a response.
 // The ID field of the request is omitted.
 func (client *RPCClient) Notification(method string, params ...interface{}) error {
-	httpRequest, err := client.newRequest(true, method, params...)
+	if len(params) == 0 {
+		params = nil
+	}
+	httpRequest, err := client.newRequest(true, method, params)
 	if err != nil {
 		return err
 	}
@@ -249,8 +277,7 @@ func (client *RPCClient) SetHTTPClient(httpClient *http.Client) {
 	client.httpClient = httpClient
 }
 
-func (client *RPCClient) newRequest(notification bool, method string, params ...interface{}) (*http.Request, error) {
-
+func (client *RPCClient) newRequest(notification bool, method string, params interface{}) (*http.Request, error) {
 	// TODO: easier way to remove ID from RPCRequest without extra struct
 	var rpcRequest interface{}
 	if notification {
@@ -258,9 +285,6 @@ func (client *RPCClient) newRequest(notification bool, method string, params ...
 			JSONRPC: "2.0",
 			Method:  method,
 			Params:  params,
-		}
-		if len(params) == 0 {
-			rpcNotification.Params = nil
 		}
 		rpcRequest = rpcNotification
 	} else {
@@ -275,9 +299,6 @@ func (client *RPCClient) newRequest(notification bool, method string, params ...
 			client.nextID++
 		}
 		client.idMutex.Unlock()
-		if len(params) == 0 {
-			request.Params = nil
-		}
 		rpcRequest = request
 	}
 

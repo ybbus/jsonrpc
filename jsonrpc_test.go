@@ -90,6 +90,25 @@ func TestRpcJsonRequestStruct(t *testing.T) {
 	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"setAnonymStruct","params":[{"name":"Alex","age":33}],"id":0}`))
 }
 
+// test if the structure of an rpc request is built correctly validate the data that arrived on the server
+func TestRpcJsonRequestStructWithNamedParams(t *testing.T) {
+	gomega.RegisterTestingT(t)
+	rpcClient := NewRPCClient(httpServer.URL)
+	rpcClient.SetAutoIncrementID(false)
+
+	rpcClient.CallNamed("myMethod", map[string]interface{}{
+		"arrayOfInts":    []int{1, 2, 3},
+		"arrayOfStrings": []string{"A", "B", "C"},
+		"bool":           true,
+		"int":            1,
+		"number":         1.2,
+		"string":         "boogaloo",
+		"subObject":      map[string]interface{}{"foo": "bar"},
+		"time":           time.Unix(1136239445, 0), // Reference Unix time.
+	})
+	body := (<-requestChan).body
+	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"myMethod","params":{"arrayOfInts":[1,2,3],"arrayOfStrings":["A","B","C"],"bool":true,"int":1,"number":1.2,"string":"boogaloo","subObject":{"foo":"bar"},"time":"2006-01-02T22:04:05Z"},"id":0}`))
+}
 func TestRpcJsonResponseStruct(t *testing.T) {
 	gomega.RegisterTestingT(t)
 	rpcClient := NewRPCClient(httpServer.URL)
