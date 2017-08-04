@@ -104,10 +104,9 @@ func TestRpcJsonRequestStructWithNamedParams(t *testing.T) {
 		"number":         1.2,
 		"string":         "boogaloo",
 		"subObject":      map[string]interface{}{"foo": "bar"},
-		"time":           time.Unix(1136239445, 0), // Reference Unix time.
 	})
 	body := (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"myMethod","params":{"arrayOfInts":[1,2,3],"arrayOfStrings":["A","B","C"],"bool":true,"int":1,"number":1.2,"string":"boogaloo","subObject":{"foo":"bar"},"time":"2006-01-02T22:04:05Z"},"id":0}`))
+	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"myMethod","params":{"arrayOfInts":[1,2,3],"arrayOfStrings":["A","B","C"],"bool":true,"int":1,"number":1.2,"string":"boogaloo","subObject":{"foo":"bar"}},"id":0}`))
 }
 func TestRpcJsonResponseStruct(t *testing.T) {
 	gomega.RegisterTestingT(t)
