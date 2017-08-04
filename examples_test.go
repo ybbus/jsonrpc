@@ -53,6 +53,19 @@ func ExampleRPCClient_Call() {
 	rpcClient.Call("setPersonByID", 123, person)
 }
 
+func ExampleRPCClient_CallNamed() {
+	rpcClient := NewRPCClient("http://my-rpc-service")
+
+	// result processing omitted, see: RPCResponse methods
+	rpcClient.CallNamed("createPerson", map[string]interface{}{
+		"name":      "Bartholomew Allen",
+		"nicknames": []string{"Barry", "Flash", },
+		"male":      true,
+		"age":       28,
+		"address":   map[string]interface{}{"street": "Main Street", "city": "Central City"},
+	})
+}
+
 func ExampleRPCResponse() {
 	rpcClient := NewRPCClient("http://my-rpc-service")
 

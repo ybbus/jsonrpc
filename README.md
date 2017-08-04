@@ -8,6 +8,7 @@ The implementation is based on the JSON-RPC 2.0 specification: http://www.jsonrp
 
 Supports:
 - requests with arbitrary parameters
+- requests with named parameters
 - notifications
 - batch requests
 - convenient response retrieval
@@ -82,6 +83,25 @@ func main() {
     rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
     response, _ := rpcClient.Call("createPerson", "Alex", 33, "Germany")
     // generates body: {"jsonrpc":"2.0","method":"createPerson","params":["Alex",33,"Germany"],"id":0}
+}
+```
+
+Call a function with named parameters:
+
+```go
+func main() {
+    rpcClient := NewRPCClient("http://my-rpc-service:8080/rpc")
+		rpcClient.CallNamed("createPerson", map[string]interface{}{
+		"name":      "Bartholomew Allen",
+		"nicknames": []string{"Barry", "Flash",},
+		"male":      true,
+		"age":       28,
+		"address":   map[string]interface{}{"street": "Main Street", "city": "Central City"},
+	})
+    // generates body: {"jsonrpc":"2.0","method":"createPerson","params":
+	//	{"name": "Bartholomew Allen", "nicknames": ["Barry", "Flash"], "male": true, "age": 28,
+	//	"address": {"street": "Main Street", "city": "Central City"}}
+	//	,"id":0}
 }
 ```
 
