@@ -59,7 +59,7 @@ func ExampleRPCClient_CallNamed() {
 	// result processing omitted, see: RPCResponse methods
 	rpcClient.CallNamed("createPerson", map[string]interface{}{
 		"name":      "Bartholomew Allen",
-		"nicknames": []string{"Barry", "Flash", },
+		"nicknames": []string{"Barry", "Flash"},
 		"male":      true,
 		"age":       28,
 		"address":   map[string]interface{}{"street": "Main Street", "city": "Central City"},
