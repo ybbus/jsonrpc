@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 )
 
@@ -56,6 +57,10 @@ type RPCError struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data"`
+}
+
+func (e *RPCError) Error() string {
+	return strconv.Itoa(e.Code) + ": " + e.Message
 }
 
 // RPCClient sends jsonrpc requests over http to the provided rpc backend.
