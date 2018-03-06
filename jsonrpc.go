@@ -452,8 +452,13 @@ func (rpcResponse *RPCResponse) GetObject(toType interface{}) error {
 	}
 
 	err = json.Unmarshal(js, &toType)
+
 	if err != nil {
 		return err
+	}
+
+	if toType == nil {
+		return errors.New("result is null")
 	}
 
 	return nil
