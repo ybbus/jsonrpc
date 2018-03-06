@@ -451,7 +451,7 @@ func (rpcResponse *RPCResponse) GetObject(toType interface{}) error {
 		return err
 	}
 
-	err = json.Unmarshal(js, toType)
+	err = json.Unmarshal(js, &toType)
 	if err != nil {
 		return err
 	}
