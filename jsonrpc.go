@@ -164,6 +164,17 @@ func (client *RPCClient) CallNamed(method string, params map[string]interface{})
 	return client.doCall(httpRequest)
 }
 
+// Convenient way for pass a Object , not a array
+func (client *RPCClient) CallParmsObj(method string, params interface{}) (*RPCResponse, error) {
+	httpRequest, err := client.newRequest(false, method, params)
+	if err != nil {
+		return nil, err
+	}
+	return client.doCall(httpRequest)
+}
+
+
+
 func (client *RPCClient) doCall(req *http.Request) (*RPCResponse, error) {
 	httpResponse, err := client.httpClient.Do(req)
 	if err != nil {
