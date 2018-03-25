@@ -186,7 +186,7 @@ func (client *RPCClient) CallObject(method string, jsonStruct interface{}) (*RPC
 	}
 
 	if typeOf != nil && typeOf.Kind() != reflect.Struct {
-		return nil, errors.New("illegal argument: must be (pointer of) struct")
+		return nil, errors.New("illegal argument: must be (pointer of) struct, was: " + typeOf.Kind().String())
 	}
 
 	httpRequest, err := client.newRequest(false, method, jsonStruct)
