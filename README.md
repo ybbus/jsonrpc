@@ -7,8 +7,9 @@ A go implementation of an rpc client using json as data format over http.
 The implementation is based on the JSON-RPC 2.0 specification: http://www.jsonrpc.org/specification
 
 Supports:
-- requests with arbitrary parameters
-- requests with named parameters
+- requests with arbitrary parameters (array)
+- requests with named parameters (object)
+- requests with go JSON structs (object)
 - notifications
 - batch requests
 - convenient response retrieval
@@ -76,7 +77,7 @@ func main() {
 }
 ```
 
-Call a function with arbitrary parameters:
+Call a function with arbitrary array parameters:
 
 ```go
 func main() {
@@ -91,7 +92,7 @@ Call a function with named parameters:
 ```go
 func main() {
     rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-		rpcClient.CallNamed("createPerson", map[string]interface{}{
+	rpcClient.CallNamed("createPerson", map[string]interface{}{
 		"name":      "Bartholomew Allen",
 		"nicknames": []string{"Barry", "Flash",},
 		"male":      true,
@@ -102,6 +103,32 @@ func main() {
 	//	{"name": "Bartholomew Allen", "nicknames": ["Barry", "Flash"], "male": true, "age": 28,
 	//	"address": {"street": "Main Street", "city": "Central City"}}
 	//	,"id":0}
+}
+```
+
+Call a function with convenient go JSON struct:
+
+```go
+func main() {
+    type Person struct {
+        Id   int `json:"id"`
+        Name string `json:"name"`
+        Age  int `json:"age"`
+    }
+
+    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
+
+    // only nil, struct or pointer of struct allowed
+	rpcClient.CallNamed("createPerson", &Person{
+	  	"Id": 4711,
+	  	"Name": "Alex",
+	  	"Age": 35,
+	})
+	// generates body:
+    // {"jsonrpc":"2.0","method":"createPerson","params":{"id":4711,"name":"Alex","age":35},"id":0}
+
+	// if no parameter is required better use:
+	rpcClient.Call("getInfo")
 }
 ```
 

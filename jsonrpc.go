@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"reflect"
 )
 
 // RPCRequest represents a jsonrpc request object.
@@ -161,6 +162,38 @@ func (client *RPCClient) CallNamed(method string, params map[string]interface{})
 	if err != nil {
 		return nil, err
 	}
+	return client.doCall(httpRequest)
+}
+
+// CallObject sends an jsonrpc request over http to the rpc-service url that was provided on client creation.
+// This differs from Call() by directly passing a struct or a pointer to a struct.
+// The method uses reflection to check if the caller provided a struct or something else.
+// Performance of reflection call is not a big deal compared to the other actions this method performs.
+//
+// If the caller did not pass a (pointer) struct an error will be returned.
+//
+// If something went wrong on the network / http level or if json parsing failed it returns an error.
+//
+// If something went wrong on the rpc-service / protocol level the Error field of the returned RPCResponse is set
+// and contains information about the error.
+//
+// If the request was successful the Error field is nil and the Result field of the RPCRespnse struct contains the rpc result.
+func (client *RPCClient) CallObject(method string, jsonStruct interface{}) (*RPCResponse, error) {
+	var typeOf reflect.Type
+
+	// traverse until nil or not a pointer to something
+	for typeOf = reflect.TypeOf(jsonStruct); typeOf != nil && typeOf.Kind() == reflect.Ptr; typeOf = typeOf.Elem() {
+	}
+
+	if typeOf != nil && typeOf.Kind() != reflect.Struct {
+		return nil, errors.New("illegal argument: must be (pointer of) struct")
+	}
+
+	httpRequest, err := client.newRequest(false, method, jsonStruct)
+	if err != nil {
+		return nil, err
+	}
+
 	return client.doCall(httpRequest)
 }
 
