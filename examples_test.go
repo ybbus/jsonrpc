@@ -66,6 +66,46 @@ func ExampleRPCClient_CallNamed() {
 	})
 }
 
+func ExampleRPCClient_CallObject() {
+	rpcClient := NewRPCClient("http://my-rpc-service")
+
+	type Person struct {
+		Name    string `json:"name"`
+		Age     int    `json:"age"`
+		Country string `json:"country"`
+	}
+
+	// CallObject only handles (pointer of) structs
+	rpcClient.CallObject("createPerson", Person{
+		Name:    "Alex",
+		Age:     35,
+		Country: "Germany",
+	})
+
+	// CallObject only handles (pointer of) structs
+	rpcClient.CallObject("createPerson", &Person{
+		Name:    "Alex",
+		Age:     35,
+		Country: "Germany",
+	})
+
+	// don't forget the json tags on anonymous structs
+	rpcClient.CallObject("createPerson", struct {
+		Length float32 `json:"length"`
+		Height float32 `json:"height"`
+	}{
+		Length: 5.6,
+		Height: 7.8,
+	})
+
+	// Everything that is not a struct returns an error
+	_, err := rpcClient.CallObject("setBirthday", "26.06.2013")
+	fmt.Println(err.Error())
+
+	// Only other value that is allowed is nil
+	rpcClient.CallObject("doNothing", nil)
+}
+
 func ExampleRPCResponse() {
 	rpcClient := NewRPCClient("http://my-rpc-service")
 
