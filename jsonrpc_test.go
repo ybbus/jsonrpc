@@ -11,7 +11,7 @@ import (
 
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 )
 
 // needed to retrieve requests that arrived at httpServer for further investigation
@@ -44,415 +44,290 @@ func TestMain(m *testing.M) {
 }
 
 func TestSimpleRpcCallHeaderCorrect(t *testing.T) {
-	gomega.RegisterTestingT(t)
+	RegisterTestingT(t)
 
-	rpcClient := NewRPCClient(httpServer.URL)
+	rpcClient := NewClient(httpServer.URL)
 	rpcClient.Call("add", 1, 2)
 
 	req := (<-requestChan).request
 
-	gomega.Expect(req.Method).To(gomega.Equal("POST"))
-	gomega.Expect(req.Header.Get("Content-Type")).To(gomega.Equal("application/json"))
-	gomega.Expect(req.Header.Get("Accept")).To(gomega.Equal("application/json"))
+	Expect(req.Method).To(Equal("POST"))
+	Expect(req.Header.Get("Content-Type")).To(Equal("application/json"))
+	Expect(req.Header.Get("Accept")).To(Equal("application/json"))
 }
 
 // test if the structure of an rpc request is built correctly validate the data that arrived on the server
-func TestRpcJsonRequestStruct(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-	rpcClient.SetAutoIncrementID(false)
+func TestRpcClient_Call(t *testing.T) {
+	RegisterTestingT(t)
+	rpcClient := NewClient(httpServer.URL)
 
-	rpcClient.Call("add", 1, 2)
+	person := Person{
+		Name:    "Alex",
+		Age:     35,
+		Country: "Germany",
+	}
+
+	food := Drink{
+		Name:        "Cuba Libre",
+		Ingredients: []string{"rum", "cola"},
+	}
+
+	rpcClient.Call("nullParam", nil)
 	body := (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"add","params":[1,2],"id":0}`))
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"nullParam","params":[null],"id":1}`))
 
-	rpcClient.Call("setName", "alex")
+	rpcClient.Call("nullParams", nil, nil)
 	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"setName","params":["alex"],"id":0}`))
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"nullParams","params":[null,null],"id":1}`))
 
-	rpcClient.Call("setPerson", "alex", 33, "Germany")
+	rpcClient.Call("boolParam", true)
 	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"setPerson","params":["alex",33,"Germany"],"id":0}`))
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"boolParam","params":[true],"id":1}`))
 
-	rpcClient.Call("setPersonObject", Person{"alex", 33, "Germany"})
+	rpcClient.Call("boolParams", true, false, true)
 	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"setPersonObject","params":[{"name":"alex","age":33,"country":"Germany"}],"id":0}`))
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"boolParams","params":[true,false,true],"id":1}`))
 
-	rpcClient.Call("getDate")
+	rpcClient.Call("stringParam", "Alex")
 	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"getDate","id":0}`))
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"stringParam","params":["Alex"],"id":1}`))
 
-	rpcClient.Call("setAnonymStruct", struct {
+	rpcClient.Call("stringParams", "JSON", "RPC")
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"stringParams","params":["JSON","RPC"],"id":1}`))
+
+	rpcClient.Call("numberParam", 123)
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"numberParam","params":[123],"id":1}`))
+
+	rpcClient.Call("numberParams", 123, 321)
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"numberParams","params":[123,321],"id":1}`))
+
+	rpcClient.Call("floatParam", 1.23)
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"floatParam","params":[1.23],"id":1}`))
+
+	rpcClient.Call("floatParams", 1.23, 3.21)
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"floatParams","params":[1.23,3.21],"id":1}`))
+
+	rpcClient.Call("manyParams", "Alex", 35, true, nil, 2.34)
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"manyParams","params":["Alex",35,true,null,2.34],"id":1}`))
+
+	rpcClient.Call("emptyArray", []interface{}{})
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"emptyArray","params":[],"id":1}`))
+
+	rpcClient.Call("emptyAnyArray", []string{})
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"emptyAnyArray","params":[],"id":1}`))
+
+	rpcClient.Call("emptyObject", struct{}{})
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"emptyObject","params":{},"id":1}`))
+
+	rpcClient.Call("emptyMissingPublicFieldObject", struct{ name string }{name: "Alex",})
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"emptyMissingPublicFieldObject","params":{},"id":1}`))
+
+	rpcClient.Call("singleStruct", person)
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"singleStruct","params":{"name":"Alex","age":35,"country":"Germany"},"id":1}`))
+
+	rpcClient.Call("singlePointerToStruct", &person)
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"singlePointerToStruct","params":{"name":"Alex","age":35,"country":"Germany"},"id":1}`))
+
+	pp := &person
+	rpcClient.Call("doublePointerStruct", &pp)
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"doublePointerStruct","params":{"name":"Alex","age":35,"country":"Germany"},"id":1}`))
+
+	rpcClient.Call("multipleStructs", person, &food)
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"multipleStructs","params":[{"name":"Alex","age":35,"country":"Germany"},{"name":"Cuba Libre","ingredients":["rum","cola"]}],"id":1}`))
+
+	rpcClient.Call("singleStructInArray", []interface{}{person})
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"singleStructInArray","params":[{"name":"Alex","age":35,"country":"Germany"}],"id":1}`))
+
+	rpcClient.Call("namedParameters", map[string]interface{}{
+		"name": "Alex",
+		"age":  35,
+	})
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"namedParameters","params":{"age":35,"name":"Alex"},"id":1}`))
+
+	rpcClient.Call("anonymousStruct", struct {
 		Name string `json:"name"`
 		Age  int    `json:"age"`
 	}{"Alex", 33})
 	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"setAnonymStruct","params":[{"name":"Alex","age":33}],"id":0}`))
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"anonymousStruct","params":{"name":"Alex","age":33},"id":1}`))
+
+	rpcClient.Call("structWithNullField", struct {
+		Name    string  `json:"name"`
+		Address *string `json:"address"`
+	}{"Alex", nil})
+	body = (<-requestChan).body
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"structWithNullField","params":{"name":"Alex","address":null},"id":1}`))
 }
 
-// test if the structure of an rpc request is built correctly validate the data that arrived on the server
-func TestRpcJsonRequestStructWithNamedParams(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-	rpcClient.SetAutoIncrementID(false)
+func TestRpcClient_CallFor(t *testing.T) {
+	RegisterTestingT(t)
+	rpcClient := NewClient(httpServer.URL)
 
-	rpcClient.CallNamed("myMethod", map[string]interface{}{
-		"arrayOfInts":    []int{1, 2, 3},
-		"arrayOfStrings": []string{"A", "B", "C"},
-		"bool":           true,
-		"int":            1,
-		"number":         1.2,
-		"string":         "boogaloo",
-		"subObject":      map[string]interface{}{"foo": "bar"},
-	})
-	body := (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"myMethod","params":{"arrayOfInts":[1,2,3],"arrayOfStrings":["A","B","C"],"bool":true,"int":1,"number":1.2,"string":"boogaloo","subObject":{"foo":"bar"}},"id":0}`))
+	var i int
+	responseBody = `{"jsonrpc":"2.0","result":3,"id":1}`
+	err := rpcClient.CallFor(&i, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(i).To(Equal(3))
+
+	i = 3
+	responseBody = `{"jsonrpc":"2.0","result":null,"id":1}`
+	err = rpcClient.CallFor(&i, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	// i is not modified when result is empty since null (nil) value cannot be stored in int
+	Expect(i).To(Equal(3))
+
+	var pi *int
+	responseBody = `{"jsonrpc":"2.0","result":4,"id":1}`
+	err = rpcClient.CallFor(pi, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).NotTo(BeNil())
+	Expect(pi).To(BeNil())
+
+	responseBody = `{"jsonrpc":"2.0","result":4,"id":1}`
+	err = rpcClient.CallFor(&pi, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(*pi).To(Equal(4))
+
+	*pi = 3
+	responseBody = `{"jsonrpc":"2.0","result":null,"id":1}`
+	err = rpcClient.CallFor(&pi, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	// since pi has a value it is not overwritten by null result
+	Expect(pi).To(BeNil())
+
+	p := &Person{}
+	responseBody = `{"jsonrpc":"2.0","result":null,"id":1}`
+	err = rpcClient.CallFor(p, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	// p is not changed since it has a value and result is null
+	Expect(p).NotTo(BeNil())
+
+	var p2 *Person
+	responseBody = `{"jsonrpc":"2.0","result":null,"id":1}`
+	err = rpcClient.CallFor(p2, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).NotTo(BeNil())
+	// p is not changed since it has a value and result is null
+	Expect(p2).To(BeNil())
+
+	p3 := Person{}
+	responseBody = `{"jsonrpc":"2.0","result":null,"id":1}`
+	err = rpcClient.CallFor(&p3, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	// p is not changed since it has a value and result is null
+	Expect(p).NotTo(BeNil())
+
+	p = &Person{Age: 35}
+	responseBody = `{"jsonrpc":"2.0","result":{"name":"Alex"},"id":1}`
+	err = rpcClient.CallFor(p, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	// p is not changed since it has a value and result is null
+	Expect(p.Name).To(Equal("Alex"))
+	Expect(p.Age).To(Equal(35))
+
+	p2 = nil
+	responseBody = `{"jsonrpc":"2.0","result":{"name":"Alex"},"id":1}`
+	err = rpcClient.CallFor(p2, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).NotTo(BeNil())
+	// p is not changed since it has a value and result is null
+	Expect(p2).To(BeNil())
+
+	p2 = nil
+	responseBody = `{"jsonrpc":"2.0","result":{"name":"Alex"},"id":1}`
+	err = rpcClient.CallFor(&p2, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	// p is not changed since it has a value and result is null
+	Expect(p2).NotTo(BeNil())
+	Expect(p2.Name).To(Equal("Alex"))
+
+	p3 = Person{Age: 35}
+	responseBody = `{"jsonrpc":"2.0","result":{"name":"Alex"},"id":1}`
+	err = rpcClient.CallFor(&p3, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	// p is not changed since it has a value and result is null
+	Expect(p.Name).To(Equal("Alex"))
+	Expect(p.Age).To(Equal(35))
+
+	p3 = Person{Age: 35}
+	responseBody = `{"jsonrpc":"2.0","result":{"name":"Alex"},"id":1}`
+	err = rpcClient.CallFor(&p3, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	// p is not changed since it has a value and result is null
+	Expect(p.Name).To(Equal("Alex"))
+	Expect(p.Age).To(Equal(35))
+
+	var intArray []int
+	responseBody = `{"jsonrpc":"2.0","result":[1, 2, 3],"id":1}`
+	err = rpcClient.CallFor(&intArray, "something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	// p is not changed since it has a value and result is null
+	Expect(intArray).To(ContainElement(1))
+	Expect(intArray).To(ContainElement(2))
+	Expect(intArray).To(ContainElement(3))
 }
+
 func TestRpcJsonResponseStruct(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-	rpcClient.SetAutoIncrementID(false)
+	RegisterTestingT(t)
+	rpcClient := NewClient(httpServer.URL)
 
-	responseBody = `{"jsonrpc":"2.0","result":3,"id":0}`
+	responseBody = `{"jsonrpc":"2.0","result":3,"id":1}`
 	response, _ := rpcClient.Call("test") // Call param does not matter, since response does not depend on request
 	<-requestChan
 	var int64Result int64
 	int64Result, _ = response.GetInt64()
-	gomega.Expect(int64Result).To(gomega.Equal(int64(3)))
+	Expect(int64Result).To(Equal(int64(3)))
 
-	responseBody = `{"jsonrpc":"2.0","result":3,"id":0}`
+	responseBody = `{"jsonrpc":"2.0","result":3,"id":1}`
 	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
 	<-requestChan
 	var intResult int
 	intResult, _ = response.GetInt()
-	gomega.Expect(intResult).To(gomega.Equal(3))
+	Expect(intResult).To(Equal(3))
 
-	responseBody = `{"jsonrpc":"2.0","result":3.3,"id":0}`
+	responseBody = `{"jsonrpc":"2.0","result":3.3,"id":1}`
 	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
 	<-requestChan
 	_, err := response.GetInt()
-	gomega.Expect(err).To(gomega.Not(gomega.Equal(nil)))
+	Expect(err).To(Not(Equal(nil)))
 
-	responseBody = `{"jsonrpc":"2.0","result":false,"id":0}`
+	responseBody = `{"jsonrpc":"2.0","result":false,"id":1}`
 	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
 	<-requestChan
 	_, err = response.GetInt()
-	gomega.Expect(err).To(gomega.Not(gomega.Equal(nil)))
-
-	responseBody = `{"jsonrpc":"2.0","result": 3.7,"id":0}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	var float64Result float64
-	float64Result, _ = response.GetFloat64()
-	gomega.Expect(float64Result).To(gomega.Equal(3.7))
-
-	responseBody = `{"jsonrpc":"2.0","result": "1.3","id":0}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	_, err = response.GetFloat64()
-	gomega.Expect(err).To(gomega.Not(gomega.Equal(nil)))
-
-	responseBody = `{"jsonrpc":"2.0","result": true,"id":0}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	var boolResult bool
-	boolResult, _ = response.GetBool()
-	gomega.Expect(boolResult).To(gomega.Equal(true))
-
-	responseBody = `{"jsonrpc":"2.0","result": 0,"id":0}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	_, err = response.GetBool()
-	gomega.Expect(err).To(gomega.Not(gomega.Equal(nil)))
-
-	responseBody = `{"jsonrpc":"2.0","result": "alex","id":0}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	var stringResult string
-	stringResult, _ = response.GetString()
-	gomega.Expect(stringResult).To(gomega.Equal("alex"))
-
-	responseBody = `{"jsonrpc":"2.0","result": 123,"id":0}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	_, err = response.GetString()
-	gomega.Expect(err).To(gomega.Not(gomega.Equal(nil)))
-
-	responseBody = `{"jsonrpc":"2.0","result": {"name": "alex", "age": 33, "country": "Germany"},"id":0}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	var person Person
-	response.GetObject(&person)
-	gomega.Expect(person).To(gomega.Equal(Person{"alex", 33, "Germany"}))
-
-	responseBody = `{"jsonrpc":"2.0","result": 3,"id":0}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	var number int
-	response.GetObject(&number)
-	gomega.Expect(int(number)).To(gomega.Equal(3))
-
-	responseBody = `{"jsonrpc":"2.0","result": [{"name": "alex", "age": 33, "country": "Germany"}, {"name": "Ferolaz", "age": 333, "country": "Azeroth"}],"id":0}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	var personArray = []Person{}
-	response.GetObject(&personArray)
-	gomega.Expect(personArray).To(gomega.Equal([]Person{{"alex", 33, "Germany"}, {"Ferolaz", 333, "Azeroth"}}))
-
-	responseBody = `{"jsonrpc":"2.0","result": [1, 2, 3],"id":0}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	var intArray []int
-	response.GetObject(&intArray)
-	gomega.Expect(intArray).To(gomega.Equal([]int{1, 2, 3}))
-}
-
-func TestResponseErrorWorks(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-	rpcClient.SetAutoIncrementID(false)
-
-	responseBody = `{"jsonrpc":"2.0","error": {"code": -123, "message": "something wrong"},"id":0}`
-	response, _ := rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	gomega.Expect(*response.Error).To(gomega.Equal(RPCError{-123, "something wrong", nil}))
-}
-
-func TestNotifyWorks(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-
-	rpcClient.Notification("test", 10)
-	<-requestChan
-	rpcClient.Notification("test", Person{"alex", 33, "Germany"})
-	<-requestChan
-	rpcClient.Notification("test", 10, 20, "alex")
-	body := (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"test","params":[10,20,"alex"]}`))
-}
-
-func TestNewRPCRequestObject(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-
-	req := rpcClient.NewRPCRequestObject("add", 1, 2)
-	gomega.Expect(req).To(gomega.Equal(&RPCRequest{
-		JSONRPC: "2.0",
-		ID:      0,
-		Method:  "add",
-		Params:  []interface{}{1, 2},
-	}))
-
-	req = rpcClient.NewRPCRequestObject("getDate")
-	gomega.Expect(req).To(gomega.Equal(&RPCRequest{
-		JSONRPC: "2.0",
-		ID:      1,
-		Method:  "getDate",
-		Params:  nil,
-	}))
-
-	req = rpcClient.NewRPCRequestObject("getPerson", Person{"alex", 33, "germany"})
-	gomega.Expect(req).To(gomega.Equal(&RPCRequest{
-		JSONRPC: "2.0",
-		ID:      2,
-		Method:  "getPerson",
-		Params:  []interface{}{Person{"alex", 33, "germany"}},
-	}))
-}
-
-func TestNewRPCNotificationObject(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-
-	req := rpcClient.NewRPCNotificationObject("add", 1, 2)
-	gomega.Expect(req).To(gomega.Equal(&RPCNotification{
-		JSONRPC: "2.0",
-		Method:  "add",
-		Params:  []interface{}{1, 2},
-	}))
-
-	req = rpcClient.NewRPCNotificationObject("getDate")
-	gomega.Expect(req).To(gomega.Equal(&RPCNotification{
-		JSONRPC: "2.0",
-		Method:  "getDate",
-		Params:  nil,
-	}))
-
-	req = rpcClient.NewRPCNotificationObject("getPerson", Person{"alex", 33, "germany"})
-	gomega.Expect(req).To(gomega.Equal(&RPCNotification{
-		JSONRPC: "2.0",
-		Method:  "getPerson",
-		Params:  []interface{}{Person{"alex", 33, "germany"}},
-	}))
-}
-
-func TestBatchRequestWorks(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-	rpcClient.SetCustomHeader("Test", "test")
-
-	req1 := rpcClient.NewRPCRequestObject("test1", "alex")
-	rpcClient.Batch(req1)
-	req := <-requestChan
-	body := req.body
-	gomega.Expect(req.request.Header.Get("Test")).To(gomega.Equal("test"))
-	gomega.Expect(body).To(gomega.Equal(`[{"jsonrpc":"2.0","method":"test1","params":["alex"],"id":0}]`))
-
-	notify1 := rpcClient.NewRPCNotificationObject("test2", "alex")
-	rpcClient.Batch(notify1)
-	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`[{"jsonrpc":"2.0","method":"test2","params":["alex"]}]`))
-
-	rpcClient.Batch(req1, notify1)
-	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`[{"jsonrpc":"2.0","method":"test1","params":["alex"],"id":0},{"jsonrpc":"2.0","method":"test2","params":["alex"]}]`))
-
-	requests := []interface{}{req1, notify1}
-	rpcClient.Batch(requests...)
-	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`[{"jsonrpc":"2.0","method":"test1","params":["alex"],"id":0},{"jsonrpc":"2.0","method":"test2","params":["alex"]}]`))
-
-	invalid := &Person{"alex", 33, "germany"}
-	_, err := rpcClient.Batch(invalid, notify1)
-	gomega.Expect(err).To(gomega.Not(gomega.Equal(nil)))
-}
-
-func TestBatchResponseWorks(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-
-	responseBody = `[{"jsonrpc":"2.0","result": 1,"id":0},{"jsonrpc":"2.0","result": 2,"id":1},{"jsonrpc":"2.0","result": 3,"id":3}]`
-	req1 := rpcClient.NewRPCRequestObject("test1", 1)
-	req2 := rpcClient.NewRPCRequestObject("test2", 2)
-	req3 := rpcClient.NewRPCRequestObject("test3", 3)
-	responses, _ := rpcClient.Batch(req1, req2, req3)
-	<-requestChan
-
-	resp2, _ := responses.GetResponseOf(req2)
-	res2, _ := resp2.GetInt()
-
-	gomega.Expect(res2).To(gomega.Equal(2))
-}
-
-func TestIDIncremtWorks(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-	rpcClient.SetAutoIncrementID(true) // default
-
-	rpcClient.Call("test1", 1, 2)
-	body := (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"test1","params":[1,2],"id":0}`))
-
-	rpcClient.Call("test2", 1, 2)
-	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"test2","params":[1,2],"id":1}`))
-
-	rpcClient.SetNextID(10)
-
-	rpcClient.Call("test3", 1, 2)
-	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"test3","params":[1,2],"id":10}`))
-
-	rpcClient.Call("test4", 1, 2)
-	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"test4","params":[1,2],"id":11}`))
-
-	rpcClient.SetAutoIncrementID(false)
-
-	rpcClient.Call("test5", 1, 2)
-	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"test5","params":[1,2],"id":12}`))
-
-	rpcClient.Call("test6", 1, 2)
-	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"test6","params":[1,2],"id":12}`))
-}
-
-func TestRequestIDUpdateWorks(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-	rpcClient.SetAutoIncrementID(true) // default
-
-	req1 := rpcClient.NewRPCRequestObject("test", 1, 2, 3)
-	req2 := rpcClient.NewRPCRequestObject("test", 1, 2, 3)
-	gomega.Expect(int(req1.ID)).To(gomega.Equal(0))
-	gomega.Expect(int(req2.ID)).To(gomega.Equal(1))
-
-	rpcClient.UpdateRequestID(req1)
-	rpcClient.UpdateRequestID(req2)
-
-	gomega.Expect(int(req1.ID)).To(gomega.Equal(2))
-	gomega.Expect(int(req2.ID)).To(gomega.Equal(3))
-
-	rpcClient.UpdateRequestID(req2)
-	rpcClient.UpdateRequestID(req1)
-
-	gomega.Expect(int(req1.ID)).To(gomega.Equal(5))
-	gomega.Expect(int(req2.ID)).To(gomega.Equal(4))
-
-	rpcClient.UpdateRequestID(req1)
-	rpcClient.UpdateRequestID(req1)
-
-	gomega.Expect(int(req1.ID)).To(gomega.Equal(7))
-	gomega.Expect(int(req2.ID)).To(gomega.Equal(4))
-
-	rpcClient.SetAutoIncrementID(false)
-
-	rpcClient.UpdateRequestID(req2)
-	rpcClient.UpdateRequestID(req1)
-
-	gomega.Expect(int(req1.ID)).To(gomega.Equal(8))
-	gomega.Expect(int(req2.ID)).To(gomega.Equal(8))
-
-	rpcClient.SetAutoIncrementID(false)
-
-}
-
-func TestBasicAuthentication(t *testing.T) {
-	gomega.RegisterTestingT(t)
-	rpcClient := NewRPCClient(httpServer.URL)
-
-	rpcClient.SetBasicAuth("alex", "secret")
-	rpcClient.Call("add", 1, 2)
-	req := (<-requestChan).request
-	gomega.Expect(req.Header.Get("Authorization")).To(gomega.Equal("Basic YWxleDpzZWNyZXQ="))
-
-	rpcClient.SetBasicAuth("", "")
-	rpcClient.Call("add", 1, 2)
-	req = (<-requestChan).request
-	gomega.Expect(req.Header.Get("Authorization")).NotTo(gomega.Equal("Basic YWxleDpzZWNyZXQ="))
-}
-
-func TestCustomHeaders(t *testing.T) {
-	gomega.RegisterTestingT(t)
-
-	rpcClient := NewRPCClient(httpServer.URL)
-
-	rpcClient.SetCustomHeader("Test", "success")
-	rpcClient.Call("add", 1, 2)
-	req := (<-requestChan).request
-
-	gomega.Expect(req.Header.Get("Test")).To(gomega.Equal("success"))
-
-	rpcClient.SetCustomHeader("Test2", "success2")
-	rpcClient.Call("add", 1, 2)
-	req = (<-requestChan).request
-
-	gomega.Expect(req.Header.Get("Test")).To(gomega.Equal("success"))
-	gomega.Expect(req.Header.Get("Test2")).To(gomega.Equal("success2"))
-
-	rpcClient.UnsetCustomHeader("Test")
-	rpcClient.Call("add", 1, 2)
-	req = (<-requestChan).request
-
-	gomega.Expect(req.Header.Get("Test")).NotTo(gomega.Equal("success"))
-	gomega.Expect(req.Header.Get("Test2")).To(gomega.Equal("success2"))
 }
 
 func TestCustomHTTPClient(t *testing.T) {
-	gomega.RegisterTestingT(t)
+	RegisterTestingT(t)
 
-	rpcClient := NewRPCClient(httpServer.URL)
+	rpcClient := NewClient(httpServer.URL)
 
 	proxyURL, _ := url.Parse("http://proxy:8080")
 	transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
@@ -474,30 +349,34 @@ type Person struct {
 	Country string `json:"country"`
 }
 
-func TestReadmeExamples(t *testing.T) {
-	gomega.RegisterTestingT(t)
+type Drink struct {
+	Name        string   `json:"name"`
+	Ingredients []string `json:"ingredients"`
+}
 
-	rpcClient := NewRPCClient(httpServer.URL)
-	rpcClient.SetAutoIncrementID(false)
+func TestReadmeExamples(t *testing.T) {
+	RegisterTestingT(t)
+
+	rpcClient := NewClient(httpServer.URL)
 
 	rpcClient.Call("getDate")
 	body := (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"getDate","id":0}`))
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"getDate","id":1}`))
 
 	rpcClient.Call("addNumbers", 1, 2)
 	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"addNumbers","params":[1,2],"id":0}`))
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"addNumbers","params":[1,2],"id":1}`))
 
 	rpcClient.Call("createPerson", "Alex", 33, "Germany")
 	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"createPerson","params":["Alex",33,"Germany"],"id":0}`))
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"createPerson","params":["Alex",33,"Germany"],"id":1}`))
 
 	rpcClient.Call("createPerson", Person{"Alex", 33, "Germany"})
 	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"createPerson","params":[{"name":"Alex","age":33,"country":"Germany"}],"id":0}`))
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"createPerson","params":{"name":"Alex","age":33,"country":"Germany"},"id":1}`))
 
 	rpcClient.Call("createPersonsWithRole", []Person{{"Alex", 33, "Germany"}, {"Barney", 38, "Germany"}}, []string{"Admin", "User"})
 	body = (<-requestChan).body
-	gomega.Expect(body).To(gomega.Equal(`{"jsonrpc":"2.0","method":"createPersonsWithRole","params":[[{"name":"Alex","age":33,"country":"Germany"},{"name":"Barney","age":38,"country":"Germany"}],["Admin","User"]],"id":0}`))
+	Expect(body).To(Equal(`{"jsonrpc":"2.0","method":"createPersonsWithRole","params":[[{"name":"Alex","age":33,"country":"Germany"},{"name":"Barney","age":38,"country":"Germany"}],["Admin","User"]],"id":1}`))
 
 }

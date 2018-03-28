@@ -1,3 +1,6 @@
+# WIP! DO NOT USE!
+
+
 [![Go Report Card](https://goreportcard.com/badge/github.com/ybbus/jsonrpc)](https://goreportcard.com/report/github.com/ybbus/jsonrpc)
 [![GoDoc](https://godoc.org/github.com/ybbus/jsonrpc?status.svg)](https://godoc.org/github.com/ybbus/jsonrpc)
 [![GitHub license](https://img.shields.io/github/license/mashape/apistatus.svg)]()

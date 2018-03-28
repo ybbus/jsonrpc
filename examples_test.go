@@ -12,7 +12,7 @@ func Example() {
 	}
 
 	// create client
-	rpcClient := NewRPCClient("http://my-rpc-service")
+	rpcClient := NewClient("http://my-rpc-service")
 
 	// execute rpc to service
 	response, _ := rpcClient.Call("getPersonByID", 12345)
@@ -27,7 +27,7 @@ func Example() {
 }
 
 func ExampleRPCClient_Call() {
-	rpcClient := NewRPCClient("http://my-rpc-service")
+	rpcClient := NewClient("http://my-rpc-service")
 
 	// result processing omitted, see: RPCResponse methods
 	rpcClient.Call("getTimestamp")
@@ -53,21 +53,8 @@ func ExampleRPCClient_Call() {
 	rpcClient.Call("setPersonByID", 123, person)
 }
 
-func ExampleRPCClient_CallNamed() {
-	rpcClient := NewRPCClient("http://my-rpc-service")
-
-	// result processing omitted, see: RPCResponse methods
-	rpcClient.CallNamed("createPerson", map[string]interface{}{
-		"name":      "Bartholomew Allen",
-		"nicknames": []string{"Barry", "Flash"},
-		"male":      true,
-		"age":       28,
-		"address":   map[string]interface{}{"street": "Main Street", "city": "Central City"},
-	})
-}
-
 func ExampleRPCResponse() {
-	rpcClient := NewRPCClient("http://my-rpc-service")
+	rpcClient := NewClient("http://my-rpc-service")
 
 	response, _ := rpcClient.Call("addNumbers", 1, 2, 3)
 	sum, _ := response.GetInt()
@@ -102,15 +89,3 @@ func ExampleRPCResponse() {
 	fmt.Println(p.Name)
 }
 
-func ExampleRPCClient_Batch() {
-	rpcClient := NewRPCClient(httpServer.URL)
-
-	req1 := rpcClient.NewRPCRequestObject("addNumbers", 1, 2, 3)
-	req2 := rpcClient.NewRPCRequestObject("getTimestamp")
-	responses, _ := rpcClient.Batch(req1, req2)
-
-	response, _ := responses.GetResponseOf(req2)
-	timestamp, _ := response.GetInt()
-
-	fmt.Println(timestamp)
-}
