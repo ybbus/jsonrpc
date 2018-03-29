@@ -9,26 +9,12 @@ import (
 	"reflect"
 	"strconv"
 	"encoding/base64"
-	"io/ioutil"
 )
 
 const (
 	jsonrpcVersion = "2.0"
 	defaultID      = 1
 )
-
-// HTTPError is returned if an error on HTTP layer occurred.
-// This is helpful for further error investigation (e.g. check for status code 403)
-type HTTPError struct {
-	Status int
-	URL    string
-	Body   []byte
-	error  string
-}
-
-func (e *HTTPError) Error() string {
-	return fmt.Sprintf("error: status %v on POST %v", e.Status, e.URL)
-}
 
 // Request represents a JSON-RPC request object.
 //
@@ -40,7 +26,7 @@ type RPCRequest struct {
 	ID      uint        `json:"id,omitempty"`
 }
 
-// Response represents a JSON-RPC response object.
+// RPCResponse represents a JSON-RPC response object.
 // If no rpc specific error occurred Error field is nil.
 //
 // See: http://www.jsonrpc.org/specification#response_object
@@ -51,7 +37,7 @@ type RPCResponse struct {
 	ID      uint        `json:"id"`
 }
 
-// Error represents a JSON-RPC error object if an RPC error occurred.
+// RPCError represents a JSON-RPC error object if an RPC error occurred.
 //
 // See: http://www.jsonrpc.org/specification#error_object
 type RPCError struct {
@@ -61,7 +47,7 @@ type RPCError struct {
 }
 
 func (e *RPCError) Error() string {
-	return strconv.Itoa(e.Code) + ": " + e.Message
+	return strconv.Itoa(e.Code) + ":" + e.Message
 }
 
 // RPCClient sends JSON-RPC requests over HTTP to the provided JSON-RPC backend.
@@ -103,7 +89,7 @@ func (client *RPCClient) SetBasicAuth(username string, password string) {
 
 // SetHTTPClient can be used to set a custom http.Client.
 // This can be useful for example if you want to customize the http.Client behaviour (e.g. proxy or tls settings)
-func (client *RPCClient) SetHTTPClient(httpClient *http.Client) { // TODO: pointer vs struct
+func (client *RPCClient) SetHTTPClient(httpClient *http.Client) {
 	client.httpClient = httpClient
 }
 
@@ -112,75 +98,32 @@ func (client *RPCClient) SetHTTPClient(httpClient *http.Client) { // TODO: point
 // Usage:
 // Call("getinfo") no parameters
 // Call("setPerson", "Alex", 1, 2) if more than one parameter is provided, they are automatically wrapped into an array
-// Call("setTime", "11:30") if one parameter is provided, it is wrapped into an array if it is a primitive value type (int, string, etc)
-// Call("setNumbers", []int{1, 2, 3}) positional parameters can be set directly
-// Call("setNumbers", &Person{Name: "Alex", "Age": 35})
-// Call("setNumbers", []*Person{&Person{Name: "Alex", "Age": 35}) object wrapped in array
-// Call("explicitNull", nil)
-// Call("emptyArray", []interface{}{}) empty array
-// Call("emptyObject", {}interface{}{ empty array // TODO:
+// Call("setTime", "11:30") if one parameter is provided, it is wrapped into an array if it is a primitive value type (int, string, etc.)
+// Call("setNumbers", []int{1, 2, 3}) -> "params": [1, 2, 3]
+// Call("setPerson", &Person{Name: "Alex", "Age": 35}) -> "params": {"name":"Alex","age":35}
+// Call("setPersons", []*Person{&Person{Name: "Alex", "Age": 35}) -> "params": [{"name":"Alex","age":35}]
+// Call("explicitNull", nil)  -> "params": [null]
+// Call("emptyArray", []interface{}{}) -> "params": []
+// Call("emptyObject", struct{}{}) -> "params": {}
 //
 // If something went wrong on the network / http level or if json parsing failed, error != nil is returned.
-// If an HTTP error occurred the error is of type HTTPError, to investigate the error code.
 //
-// If something went wrong on the rpc-service / protocol level the Error field of the returned Response is set
+// If something went wrong on the rpc-service / protocol level the Error field of the returned RPCResponse is set
 // and contains information about the error.
 //
 // If the request was successful the Error field is nil and the Result field of the Response struct contains the rpc result.
 func (client *RPCClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
-	var finalParam interface{}
-
-	// if params was nil skip this and p stays nil
-	if params != nil {
-		switch len(params) {
-		case 0: // no parameters were provided, do nothing so finalParam is nil and will be omitted
-		case 1: // one param was provided, use it directly as is, or wrap primitive types in array
-			if params[0] != nil {
-				var typeOf reflect.Type
-
-				// traverse until nil or not a pointer type
-				for typeOf = reflect.TypeOf(params[0]); typeOf != nil && typeOf.Kind() == reflect.Ptr; typeOf = typeOf.Elem() {
-				}
-
-				if typeOf != nil {
-					// now check if we can directly marshal the type or if it must be wrapped in an array
-					switch typeOf.Kind() {
-					// for these types we just do nothing, since value of p is already unwrapped from the array params
-					case reflect.Struct:
-						finalParam = params[0]
-					case reflect.Array:
-						finalParam = params[0]
-					case reflect.Slice:
-						finalParam = params[0]
-					case reflect.Interface:
-						finalParam = params[0]
-					case reflect.Map:
-						finalParam = params[0]
-					default: // everything else must stay in an array (int, string, etc)
-						finalParam = params
-					}
-				}
-			} else {
-				finalParam = params
-			}
-		default: // if more than one parameter was provided it should be treated as an array
-			finalParam = params
-		}
-	}
 
 	request := &RPCRequest{
 		ID:      defaultID,
 		Method:  method,
-		Params:  finalParam,
+		Params:  transformParams(params...),
 		JSONRPC: jsonrpcVersion,
 	}
 
-	httpRequest, err := client.newRequest(request)
-	if err != nil {
-		return nil, err
-	}
-	return client.doCall(httpRequest)
+	return client.doCall(request)
 }
+
 
 // CallFor does the same as Call() but you can directly provide a result object.
 // If something went wrong an error is returned, otherwise your out parameter holds the result.
@@ -206,91 +149,74 @@ func (client *RPCClient) CallFor(out interface{}, method string, params ...inter
 	return nil
 }
 
-type BatchRequest struct {
-}
+func transformParams(params ...interface{}) interface{} {
+	var finalParams interface{}
 
-type RPCCall struct {
-	Method string
-	Params interface{}
-}
+	// if params was nil skip this and p stays nil
+	if params != nil {
+		switch len(params) {
+		case 0: // no parameters were provided, do nothing so finalParam is nil and will be omitted
+		case 1: // one param was provided, use it directly as is, or wrap primitive types in array
+			if params[0] != nil {
+				var typeOf reflect.Type
 
-func GetRequest(method string, params ...interface{}) *RPCCall {
-
-}
-
-func (client *RPCClient) CallBatch(batchObjects []RPCCall) ([]*RPCResponse, error) {
-	requests := make([]*RPCRequest, len(batchObjects))
-	for i, obj := range batchObjects {
-		// if params was nil skip this and p stays nil
-		var finalParam interface{}
-		if obj.Params != nil {
-			finalParam = obj.Params
-			var typeOf reflect.Type
-
-			// traverse until nil or not a pointer type
-			for typeOf = reflect.TypeOf(finalParam); typeOf != nil && typeOf.Kind() == reflect.Ptr; typeOf = typeOf.Elem() {
-			}
-
-			if typeOf != nil {
-				// now check if we can directly marshal the type or if it must be wrapped in an array
-				switch typeOf.Kind() {
-				// for these types we just do nothing, since value of p is already unwrapped from the array params
-				case reflect.Struct:
-				case reflect.Array:
-				case reflect.Slice:
-				case reflect.Interface:
-				case reflect.Map:
-				default: // everything else must stay in an array
-					finalParam = []interface{}{obj.Params}
+				// traverse until nil or not a pointer type
+				for typeOf = reflect.TypeOf(params[0]); typeOf != nil && typeOf.Kind() == reflect.Ptr; typeOf = typeOf.Elem() {
 				}
+
+				if typeOf != nil {
+					// now check if we can directly marshal the type or if it must be wrapped in an array
+					switch typeOf.Kind() {
+					// for these types we just do nothing, since value of p is already unwrapped from the array params
+					case reflect.Struct:
+						finalParams = params[0]
+					case reflect.Array:
+						finalParams = params[0]
+					case reflect.Slice:
+						finalParams = params[0]
+					case reflect.Interface:
+						finalParams = params[0]
+					case reflect.Map:
+						finalParams = params[0]
+					default: // everything else must stay in an array (int, string, etc)
+						finalParams = params
+					}
+				}
+			} else {
+				finalParams = params
 			}
-		}
-
-		requests[i] = &RPCRequest{
-			ID:      uint(i),
-			Method:  obj.Method,
-			Params:  finalParam,
-			JSONRPC: jsonrpcVersion,
+		default: // if more than one parameter was provided it should be treated as an array
+			finalParams = params
 		}
 	}
 
-	httpRequest, err := client.newRequest(requests)
-	if err != nil {
-		return err
-	}
-	return client.doCallBatch(httpRequest)
+	return finalParams
 }
 
-func (client *RPCClient) doCall(req *http.Request) (*RPCResponse, error) {
-	httpResponse, err := client.httpClient.Do(req)
+func (client *RPCClient) doCall(rpcRequest *RPCRequest) (*RPCResponse, error) {
+
+	httpRequest, err := client.newRequest(rpcRequest)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%v on %v: %v", rpcRequest.Method, httpRequest.URL.String(), err.Error())
+	}
+	httpResponse, err := client.httpClient.Do(httpRequest)
+	if err != nil {
+		return nil, fmt.Errorf("%v on %v: %v", rpcRequest.Method, httpRequest.URL.String(), err.Error())
 	}
 	defer httpResponse.Body.Close()
 
-	if httpResponse.StatusCode >= 400 {
-		data, err := ioutil.ReadAll(httpResponse.Body)
-		if err != nil {
-			return nil, &HTTPError{
-				Status: httpResponse.StatusCode,
-				URL:    req.URL.String(),
-				Body:   nil,
-			}
-		}
-		return nil, &HTTPError{
-			Status: httpResponse.StatusCode,
-			URL:    req.URL.String(),
-			Body:   data,
-		}
-
-	}
-
 	var rpcResponse *RPCResponse
 	decoder := json.NewDecoder(httpResponse.Body)
+	decoder.DisallowUnknownFields()
 	decoder.UseNumber()
 	err = decoder.Decode(&rpcResponse)
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %v", rpcRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, err.Error())
+	}
+
+	if rpcResponse == nil {
+		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. unable to decode body to rpc response object", rpcRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode)
 	}
 
 	return rpcResponse, nil
@@ -319,43 +245,10 @@ func (client *RPCClient) newRequest(req interface{}) (*http.Request, error) {
 	return request, nil
 }
 
-func (client *RPCClient) newBatchRequest(requests ...interface{}) (*http.Request, error) {
-
-	body, err := json.Marshal(requests)
-	if err != nil {
-		return nil, err
-	}
-
-	request, err := http.NewRequest("POST", client.endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-
-	for k, v := range client.customHeaders {
-		request.Header.Add(k, v)
-	}
-
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Accept", "application/json")
-
-	return request, nil
-}
-
-// GetInt converts the rpc response to an int and returns it.
-//
-// This is a convenient function. Int could be 32 or 64 bit, depending on the architecture the code is running on.
-// For a deterministic result use GetInt64().
-//
-// If result was not an integer an error is returned.
-func (rpcResponse *RPCResponse) GetInt() (int, error) {
-	i, err := rpcResponse.GetInt64()
-	return int(i), err
-}
-
 // GetInt64 converts the rpc response to an int64 and returns it.
 //
 // If result was not an integer an error is returned.
-func (rpcResponse *RPCResponse) GetInt64() (int64, error) {
+func (rpcResponse *RPCResponse) GetInt() (int64, error) {
 	val, ok := rpcResponse.Result.(json.Number)
 	if !ok {
 		return 0, fmt.Errorf("could not parse int64 from %s", rpcResponse.Result)
@@ -372,7 +265,7 @@ func (rpcResponse *RPCResponse) GetInt64() (int64, error) {
 // GetFloat64 converts the rpc response to an float64 and returns it.
 //
 // If result was not an float64 an error is returned.
-func (rpcResponse *RPCResponse) GetFloat64() (float64, error) {
+func (rpcResponse *RPCResponse) GetFloat() (float64, error) {
 	val, ok := rpcResponse.Result.(json.Number)
 	if !ok {
 		return 0, fmt.Errorf("could not parse float64 from %s", rpcResponse.Result)
@@ -419,7 +312,7 @@ func (rpcResponse *RPCResponse) GetObject(toType interface{}) error {
 		return err
 	}
 
-	err = json.Unmarshal(js, toType)
+	err = json.Unmarshal(js, toType) //TODO: toType vs &toType
 	if err != nil {
 		return err
 	}

@@ -69,7 +69,7 @@ func ExampleRPCResponse() {
 	fmt.Println(joke)
 
 	response, _ = rpcClient.Call("getPi", 10)
-	piRounded, _ := response.GetFloat64()
+	piRounded, _ := response.GetFloat()
 	fmt.Println(piRounded)
 
 	var rndNumbers []int

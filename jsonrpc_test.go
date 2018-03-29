@@ -5,11 +5,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"testing"
-
-	"time"
 
 	. "github.com/onsi/gomega"
 )
@@ -298,49 +295,20 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	RegisterTestingT(t)
 	rpcClient := NewClient(httpServer.URL)
 
-	responseBody = `{"jsonrpc":"2.0","result":3,"id":1}`
-	response, _ := rpcClient.Call("test") // Call param does not matter, since response does not depend on request
+	responseBody = ``
+	response, err := rpcClient.Call("test") // Call param does not matter, since response does not depend on request
 	<-requestChan
-	var int64Result int64
-	int64Result, _ = response.GetInt64()
-	Expect(int64Result).To(Equal(int64(3)))
+	Expect(err).NotTo(BeNil())
+	Expect(response).To(BeNil())
 
-	responseBody = `{"jsonrpc":"2.0","result":3,"id":1}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
+	responseBody = `{"result": null}`
+	response, err = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
 	<-requestChan
-	var intResult int
-	intResult, _ = response.GetInt()
-	Expect(intResult).To(Equal(3))
+	Expect(err).To(BeNil())
+	Expect(response).NotTo(BeNil())
+	Expect(response.Result).To(BeNil())
 
-	responseBody = `{"jsonrpc":"2.0","result":3.3,"id":1}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	_, err := response.GetInt()
-	Expect(err).To(Not(Equal(nil)))
 
-	responseBody = `{"jsonrpc":"2.0","result":false,"id":1}`
-	response, _ = rpcClient.Call("test") // Call param does not matter, since response does not depend on request
-	<-requestChan
-	_, err = response.GetInt()
-}
-
-func TestCustomHTTPClient(t *testing.T) {
-	RegisterTestingT(t)
-
-	rpcClient := NewClient(httpServer.URL)
-
-	proxyURL, _ := url.Parse("http://proxy:8080")
-	transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
-
-	httpClient := &http.Client{
-		Timeout:   5 * time.Second,
-		Transport: transport,
-	}
-
-	rpcClient.SetHTTPClient(httpClient)
-	rpcClient.Call("add", 1, 2)
-	// req := (<-requestChan).request
-	// TODO: what to test here?
 }
 
 type Person struct {
