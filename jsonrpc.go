@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
-	"encoding/base64"
 )
 
 const (
@@ -16,18 +15,78 @@ const (
 	defaultID      = 1
 )
 
-// Request represents a JSON-RPC request object.
+// RPCClient sends JSON-RPC requests over HTTP to the provided JSON-RPC backend.
+//
+// RPCClient is created using the factory function NewClient().
+type RPCClient interface {
+	// Call is a very handy function to send a JSON-RPC request to the server endpoint.
+	//
+	// params can only be an array or an object, no primitive values.
+	// So there are a few simple rules to notice:
+	//
+	// 1. no params: params field is omitted. e.g. Call("getinfo")
+	//
+	// 2. single params primitive value: value is wrapped in array. e.g. Call("getByID", 1423)
+	//
+	// 3. single params value array or object: value is unchanged. e.g. Call("storePerson", &Person{Name: "Alex"})
+	//
+	// 4. multiple params values: always wrapped in array. e.g. Call("setDetails", "Alex, 35, "Germany", true)
+	//
+	// Examples:
+	//   Call("getinfo") -> {"method": "getinfo"}
+	//   Call("getPersonId", 123) -> {"method": "getPersonId", "params": [123]}
+	//   Call("setName", "Alex") -> {"method": "setName", "params": ["Alex"]}
+	//   Call("setMale", true) -> {"method": "setMale", "params": [true]}
+	//   Call("setNumbers", []int{1, 2, 3}) -> {"method": "setNumbers", "params": [1, 2, 3]}
+	//   Call("setNumbers", 1, 2, 3) -> {"method": "setNumbers", "params": [1, 2, 3]}
+	//   Call("savePerson", &Person{Name: "Alex", Age: 35}) -> {"method": "savePerson", "params": {"name": "Alex", "age": 35}}
+	//   Call("setPersonDetails", "Alex", 35, "Germany") -> {"method": "setPersonDetails", "params": ["Alex", 35, "Germany"}}
+	//
+	// for more information, see the examples or the unit tests
+	Call(method string, params ...interface{}) (*RPCResponse, error)
+
+	// CallFor is a very handy function to send a JSON-RPC request to the server endpoint
+	// and directly specify an object to store the response.
+	//
+	// out: will store the unmarshaled object, if request was successful.
+	// should always be provided by references. can be nil even on success.
+	//
+	// method and params: see Call() function
+	//
+	// if the request was not successful or the rpc response returns an error,
+	// error holds the error object. if it was an JSON-RPC error it can be casted
+	// to *RPCError.
+	//
+	CallFor(out interface{}, method string, params ...interface{}) error
+}
+
+// RPCRequest represents a JSON-RPC request object.
+//
+// Method: string containing the method to be invoked
+//
+// Params: can be nil. if not must be an json array or object
+//
+// ID: may always set to 1 for single requests. Should be unique for every request in one batch request.
+//
+// JSONRPC: must always be set to "2.0" for JSON-RPC version 2.0
 //
 // See: http://www.jsonrpc.org/specification#request_object
 type RPCRequest struct {
-	JSONRPC string      `json:"jsonrpc"`
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params,omitempty"`
 	ID      uint        `json:"id,omitempty"`
+	JSONRPC string      `json:"jsonrpc"`
 }
 
 // RPCResponse represents a JSON-RPC response object.
-// If no rpc specific error occurred Error field is nil.
+//
+// Result: holds the result of the rpc call if no error occurred, nil otherwise. can be nil even on success.
+//
+// Error: holds an RPCError object if an error occurred. must be nil on success.
+//
+// ID: may always be 1 for single requests. should be unique for every request in one batch request.
+//
+// JSONRPC: must always be set to "2.0" for JSON-RPC version 2.0
 //
 // See: http://www.jsonrpc.org/specification#response_object
 type RPCResponse struct {
@@ -39,80 +98,77 @@ type RPCResponse struct {
 
 // RPCError represents a JSON-RPC error object if an RPC error occurred.
 //
+// Code: holds the error code
+//
+// Message: holds a short error message
+//
+// Data: holds additional error data, may be nil
+//
 // See: http://www.jsonrpc.org/specification#error_object
 type RPCError struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
+	Data    interface{} `json:"data,omitempty"`
 }
 
+// Error function is provided to be used as error object.
 func (e *RPCError) Error() string {
 	return strconv.Itoa(e.Code) + ":" + e.Message
 }
 
-// RPCClient sends JSON-RPC requests over HTTP to the provided JSON-RPC backend.
-// RPCClient is created using the factory function NewClient().
-type RPCClient struct {
+type rpcClient struct {
 	endpoint      string
 	httpClient    *http.Client
 	customHeaders map[string]string
 }
 
+// RPCClientOpts can be provided to NewClientWithOpts() to change configuration of RPCClient.
+//
+// HttpClient: provide a custom http.Client (e.g. to set a proxy, or tls options)
+//
+// CustomHeaders: provide custom headers, e.g. to set BasicAuth
+type RPCClientOpts struct {
+	HttpClient    *http.Client
+	CustomHeaders map[string]string
+}
+
 // NewClient returns a new RPCClient instance with default configuration.
-// Endpoint is the JSON-RPC service url to which JSON-RPC requests are sent.
-func NewClient(endpoint string) *RPCClient {
-	return &RPCClient{
+//
+// endpoint: JSON-RPC service URL to which JSON-RPC requests are sent.
+func NewClient(endpoint string) RPCClient {
+	return NewClientWithOpts(endpoint, nil)
+}
+
+// NewClientWithOpts returns a new RPCClient instance with custom configuration.
+//
+// endpoint: JSON-RPC service URL to which JSON-RPC requests are sent.
+//
+// opts: RPCClientOpts provide custom configuration
+func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
+	rpcClient := &rpcClient{
 		endpoint:      endpoint,
 		httpClient:    &http.Client{},
 		customHeaders: make(map[string]string),
 	}
-}
 
-// SetCustomHeaders is used to set a list of custom headers for each RPC request.
-// You could for example set the Authorization Bearer here.
-func (client *RPCClient) SetCustomHeaders(headers map[string]string) {
-	for k, v := range headers {
-		client.customHeaders[k] = v
+	if opts == nil {
+		return rpcClient
 	}
-}
 
-// SetBasicAuth is a helper function that sets the header for the given basic authentication credentials.
-// To reset / disable authentication just set username or password to an empty string value.
-func (client *RPCClient) SetBasicAuth(username string, password string) {
-	if username == "" && password == "" {
-		delete(client.customHeaders, "Authorization")
-		return
+	if opts.HttpClient != nil {
+		rpcClient.httpClient = opts.HttpClient
 	}
-	auth := username + ":" + password
-	client.customHeaders["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+
+	if opts.CustomHeaders != nil {
+		for k, v := range opts.CustomHeaders {
+			rpcClient.customHeaders[k] = v
+		}
+	}
+
+	return rpcClient
 }
 
-// SetHTTPClient can be used to set a custom http.Client.
-// This can be useful for example if you want to customize the http.Client behaviour (e.g. proxy or tls settings)
-func (client *RPCClient) SetHTTPClient(httpClient *http.Client) {
-	client.httpClient = httpClient
-}
-
-// Call sends a JSON-RPC request over HTTP to the JSON-RPC service url.
-//
-// Usage:
-// Call("getinfo") no parameters
-// Call("setPerson", "Alex", 1, 2) if more than one parameter is provided, they are automatically wrapped into an array
-// Call("setTime", "11:30") if one parameter is provided, it is wrapped into an array if it is a primitive value type (int, string, etc.)
-// Call("setNumbers", []int{1, 2, 3}) -> "params": [1, 2, 3]
-// Call("setPerson", &Person{Name: "Alex", "Age": 35}) -> "params": {"name":"Alex","age":35}
-// Call("setPersons", []*Person{&Person{Name: "Alex", "Age": 35}) -> "params": [{"name":"Alex","age":35}]
-// Call("explicitNull", nil)  -> "params": [null]
-// Call("emptyArray", []interface{}{}) -> "params": []
-// Call("emptyObject", struct{}{}) -> "params": {}
-//
-// If something went wrong on the network / http level or if json parsing failed, error != nil is returned.
-//
-// If something went wrong on the rpc-service / protocol level the Error field of the returned RPCResponse is set
-// and contains information about the error.
-//
-// If the request was successful the Error field is nil and the Result field of the Response struct contains the rpc result.
-func (client *RPCClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
+func (client *rpcClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
 
 	request := &RPCRequest{
 		ID:      defaultID,
@@ -124,14 +180,7 @@ func (client *RPCClient) Call(method string, params ...interface{}) (*RPCRespons
 	return client.doCall(request)
 }
 
-
-// CallFor does the same as Call() but you can directly provide a result object.
-// If something went wrong an error is returned, otherwise your out parameter holds the result.
-//
-// The out parameter behaves exactly as if it was used in json.Unmarshal().
-//
-// You won't get an RPCResponse object. But error is of type *RPCError if an rpc error occurred.
-func (client *RPCClient) CallFor(out interface{}, method string, params ...interface{}) error {
+func (client *rpcClient) CallFor(out interface{}, method string, params ...interface{}) error {
 	rpcResponse, err := client.Call(method, params...)
 	if err != nil {
 		return err
@@ -141,12 +190,59 @@ func (client *RPCClient) CallFor(out interface{}, method string, params ...inter
 		return rpcResponse.Error
 	}
 
-	err = rpcResponse.GetObject(out)
+	return rpcResponse.GetObject(out)
+}
+
+func (client *rpcClient) newRequest(req interface{}) (*http.Request, error) {
+
+	body, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	request, err := http.NewRequest("POST", client.endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+
+	// set default headers first, so that even content type and accept can be overwritten
+	for k, v := range client.customHeaders {
+		request.Header.Set(k, v)
+	}
+
+	return request, nil
+}
+
+func (client *rpcClient) doCall(RPCRequest *RPCRequest) (*RPCResponse, error) {
+
+	httpRequest, err := client.newRequest(RPCRequest)
+	if err != nil {
+		return nil, fmt.Errorf("rpc call %v() on %v: %v", RPCRequest.Method, httpRequest.URL.String(), err.Error())
+	}
+	httpResponse, err := client.httpClient.Do(httpRequest)
+	if err != nil {
+		return nil, fmt.Errorf("rpc call %v() on %v: %v", RPCRequest.Method, httpRequest.URL.String(), err.Error())
+	}
+	defer httpResponse.Body.Close()
+
+	var rpcResponse *RPCResponse
+	decoder := json.NewDecoder(httpResponse.Body)
+	decoder.DisallowUnknownFields()
+	decoder.UseNumber()
+	err = decoder.Decode(&rpcResponse)
+
+	if err != nil {
+		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %v", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, err.Error())
+	}
+
+	if rpcResponse == nil {
+		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. unable to decode body to rpc response object", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode)
+	}
+
+	return rpcResponse, nil
 }
 
 func transformParams(params ...interface{}) interface{} {
@@ -193,65 +289,13 @@ func transformParams(params ...interface{}) interface{} {
 	return finalParams
 }
 
-func (client *RPCClient) doCall(rpcRequest *RPCRequest) (*RPCResponse, error) {
-
-	httpRequest, err := client.newRequest(rpcRequest)
-	if err != nil {
-		return nil, fmt.Errorf("%v on %v: %v", rpcRequest.Method, httpRequest.URL.String(), err.Error())
-	}
-	httpResponse, err := client.httpClient.Do(httpRequest)
-	if err != nil {
-		return nil, fmt.Errorf("%v on %v: %v", rpcRequest.Method, httpRequest.URL.String(), err.Error())
-	}
-	defer httpResponse.Body.Close()
-
-	var rpcResponse *RPCResponse
-	decoder := json.NewDecoder(httpResponse.Body)
-	decoder.DisallowUnknownFields()
-	decoder.UseNumber()
-	err = decoder.Decode(&rpcResponse)
-
-	if err != nil {
-		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %v", rpcRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, err.Error())
-	}
-
-	if rpcResponse == nil {
-		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. unable to decode body to rpc response object", rpcRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode)
-	}
-
-	return rpcResponse, nil
-}
-
-func (client *RPCClient) newRequest(req interface{}) (*http.Request, error) {
-
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-
-	request, err := http.NewRequest("POST", client.endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Accept", "application/json")
-
-	// set default headers first, so that even content type and accept can be overwritten
-	for k, v := range client.customHeaders {
-		request.Header.Set(k, v)
-	}
-
-	return request, nil
-}
-
-// GetInt64 converts the rpc response to an int64 and returns it.
+// GetIn converts the rpc response to an int64 and returns it.
 //
 // If result was not an integer an error is returned.
-func (rpcResponse *RPCResponse) GetInt() (int64, error) {
-	val, ok := rpcResponse.Result.(json.Number)
+func (RPCResponse *RPCResponse) GetInt() (int64, error) {
+	val, ok := RPCResponse.Result.(json.Number)
 	if !ok {
-		return 0, fmt.Errorf("could not parse int64 from %s", rpcResponse.Result)
+		return 0, fmt.Errorf("could not parse int64 from %s", RPCResponse.Result)
 	}
 
 	i, err := val.Int64()
@@ -262,13 +306,13 @@ func (rpcResponse *RPCResponse) GetInt() (int64, error) {
 	return i, nil
 }
 
-// GetFloat64 converts the rpc response to an float64 and returns it.
+// GetFloat converts the rpc response to float64 and returns it.
 //
 // If result was not an float64 an error is returned.
-func (rpcResponse *RPCResponse) GetFloat() (float64, error) {
-	val, ok := rpcResponse.Result.(json.Number)
+func (RPCResponse *RPCResponse) GetFloat() (float64, error) {
+	val, ok := RPCResponse.Result.(json.Number)
 	if !ok {
-		return 0, fmt.Errorf("could not parse float64 from %s", rpcResponse.Result)
+		return 0, fmt.Errorf("could not parse float64 from %s", RPCResponse.Result)
 	}
 
 	f, err := val.Float64()
@@ -282,10 +326,10 @@ func (rpcResponse *RPCResponse) GetFloat() (float64, error) {
 // GetBool converts the rpc response to a bool and returns it.
 //
 // If result was not a bool an error is returned.
-func (rpcResponse *RPCResponse) GetBool() (bool, error) {
-	val, ok := rpcResponse.Result.(bool)
+func (RPCResponse *RPCResponse) GetBool() (bool, error) {
+	val, ok := RPCResponse.Result.(bool)
 	if !ok {
-		return false, fmt.Errorf("could not parse bool from %s", rpcResponse.Result)
+		return false, fmt.Errorf("could not parse bool from %s", RPCResponse.Result)
 	}
 
 	return val, nil
@@ -294,10 +338,10 @@ func (rpcResponse *RPCResponse) GetBool() (bool, error) {
 // GetString converts the rpc response to a string and returns it.
 //
 // If result was not a string an error is returned.
-func (rpcResponse *RPCResponse) GetString() (string, error) {
-	val, ok := rpcResponse.Result.(string)
+func (RPCResponse *RPCResponse) GetString() (string, error) {
+	val, ok := RPCResponse.Result.(string)
 	if !ok {
-		return "", fmt.Errorf("could not parse string from %s", rpcResponse.Result)
+		return "", fmt.Errorf("could not parse string from %s", RPCResponse.Result)
 	}
 
 	return val, nil
@@ -306,13 +350,13 @@ func (rpcResponse *RPCResponse) GetString() (string, error) {
 // GetObject converts the rpc response to an arbitrary type.
 //
 // The function works as you would expect it from json.Unmarshal()
-func (rpcResponse *RPCResponse) GetObject(toType interface{}) error {
-	js, err := json.Marshal(rpcResponse.Result)
+func (RPCResponse *RPCResponse) GetObject(toType interface{}) error {
+	js, err := json.Marshal(RPCResponse.Result)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(js, toType) //TODO: toType vs &toType
+	err = json.Unmarshal(js, toType)
 	if err != nil {
 		return err
 	}
