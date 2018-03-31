@@ -12,8 +12,7 @@ Supports:
 - custom http client (e.g. proxy, tls config)
 - custom headers (e.g. basic auth)
 
-WIP:
-- notifications
+wip:
 - batch requests
 
 ## Installation
@@ -112,6 +111,70 @@ func main() {
 }
 ```
 
+Some examples and resulting JSON-RPC objects:
+
+```go
+rpcClient.Call("missingParam")
+{"method":"missingParam"}
+
+rpcClient.Call("nullParam", nil)
+{"method":"nullParam","params":[null]}
+
+rpcClient.Call("boolParam", true)
+{"method":"boolParam","params":[true]}
+
+rpcClient.Call("boolParams", true, false, true)
+{"method":"boolParams","params":[true,false,true]}
+
+rpcClient.Call("stringParam", "Alex")
+{"method":"stringParam","params":["Alex"]}
+
+rpcClient.Call("stringParams", "JSON", "RPC")
+{"method":"stringParams","params":["JSON","RPC"]}
+
+rpcClient.Call("numberParam", 123)
+{"method":"numberParam","params":[123]}
+
+rpcClient.Call("numberParams", 123, 321)
+{"method":"numberParams","params":[123,321]}
+
+rpcClient.Call("floatParam", 1.23)
+{"method":"floatParam","params":[1.23]}
+
+rpcClient.Call("floatParams", 1.23, 3.21)
+{"method":"floatParams","params":[1.23,3.21]}
+
+rpcClient.Call("manyParams", "Alex", 35, true, nil, 2.34)
+{"method":"manyParams","params":["Alex",35,true,null,2.34]}
+
+rpcClient.Call("singlePointerToStruct", &person)
+{"method":"singlePointerToStruct","params":{"name":"Alex","age":35,"country":"Germany"}}
+
+rpcClient.Call("multipleStructs", &person, &drink)
+{"method":"multipleStructs","params":[{"name":"Alex","age":35,"country":"Germany"},{"name":"Cuba Libre","ingredients":["rum","cola"]}]}
+
+rpcClient.Call("singleStructInArray", []*Person{&person})
+{"method":"singleStructInArray","params":[{"name":"Alex","age":35,"country":"Germany"}]}
+
+rpcClient.Call("namedParameters", map[string]interface{}{
+	"name": "Alex",
+	"age":  35,
+})
+{"method":"namedParameters","params":{"age":35,"name":"Alex"}}
+
+rpcClient.Call("anonymousStruct", struct {
+	Name string `json:"name"`
+	Age  int    `json:"age"`
+}{"Alex", 33})
+{"method":"anonymousStructWithTags","params":{"name":"Alex","age":33}}
+
+rpcClient.Call("structWithNullField", struct {
+	Name    string  `json:"name"`
+	Address *string `json:"address"`
+}{"Alex", nil})
+{"method":"structWithNullField","params":{"name":"Alex","address":null}}
+```
+
 ### Working with rpc-json responses
 
 
@@ -155,7 +218,7 @@ Again: check for err != nil here to be sure the expected type was provided in th
 
 ```go
 func main() {
-    rpcClient := jsonrpc.NewCLient("http://my-rpc-service:8080/rpc")
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
     response, _ := rpcClient.Call("addNumbers", 1, 2)
 
     result, err := response.GetInt()
@@ -216,7 +279,7 @@ func main() {
     response, _ := rpcClient.Call("getRandomNumbers", 10)
 
     rndNumbers := []int{}
-    err := response.getObject(&rndNumbers) // expects a rpc-object result value like: [10, 188, 14, 3]
+    err := response.GetObject(&rndNumbers) // expects a rpc-object result value like: [10, 188, 14, 3]
     if err != nil {
         // do error handling
     }
@@ -288,7 +351,7 @@ func main() {
     	}
 
     	rpcClient := jsonrpc.NewClientWithOpts("http://my-rpc-service:8080/rpc", &jsonrpc.RPCClientOpts{
-    		HttpClient: credentials.Client(context.Background()),
+    		HTTPClient: credentials.Client(context.Background()),
     	})
 
 	// requests now retrieve and use an oauth token
@@ -310,7 +373,7 @@ func main() {
 	}
 
 	rpcClient := jsonrpc.NewClientWithOpts("http://my-rpc-service:8080/rpc", &jsonrpc.RPCClientOpts{
-		HttpClient: httpClient,
+		HTTPClient: httpClient,
 	})
 
 	// requests now use proxy
