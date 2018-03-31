@@ -124,11 +124,11 @@ type rpcClient struct {
 
 // RPCClientOpts can be provided to NewClientWithOpts() to change configuration of RPCClient.
 //
-// HttpClient: provide a custom http.Client (e.g. to set a proxy, or tls options)
+// HTTPClient: provide a custom http.Client (e.g. to set a proxy, or tls options)
 //
 // CustomHeaders: provide custom headers, e.g. to set BasicAuth
 type RPCClientOpts struct {
-	HttpClient    *http.Client
+	HTTPClient    *http.Client
 	CustomHeaders map[string]string
 }
 
@@ -155,8 +155,8 @@ func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 		return rpcClient
 	}
 
-	if opts.HttpClient != nil {
-		rpcClient.httpClient = opts.HttpClient
+	if opts.HTTPClient != nil {
+		rpcClient.httpClient = opts.HTTPClient
 	}
 
 	if opts.CustomHeaders != nil {
@@ -289,7 +289,7 @@ func transformParams(params ...interface{}) interface{} {
 	return finalParams
 }
 
-// GetIn converts the rpc response to an int64 and returns it.
+// GetInt converts the rpc response to an int64 and returns it.
 //
 // If result was not an integer an error is returned.
 func (RPCResponse *RPCResponse) GetInt() (int64, error) {
