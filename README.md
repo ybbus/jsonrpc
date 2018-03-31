@@ -7,15 +7,13 @@ A go implementation of an rpc client using json as data format over http.
 The implementation is based on the JSON-RPC 2.0 specification: http://www.jsonrpc.org/specification
 
 Supports:
-- requests with arbitrary parameters (array)
-- requests with named parameters (object)
-- requests with go JSON structs (object)
-- notifications
-- batch requests
+- requests with arbitrary parameters
 - convenient response retrieval
-- basic authentication
-- custom headers
-- custom http client
+- custom http client (e.g. proxy, tls config)
+- custom headers (e.g. basic auth)
+
+wip:
+- batch requests
 
 ## Installation
 
@@ -24,9 +22,8 @@ go get -u github.com/ybbus/jsonrpc
 ```
 
 ## Getting started
-Let's say we want to retrieve a person with a specific id using rpc-json over http.
-Then we want to save this person with new properties.
-We have to provide basic authentication credentials.
+Let's say we want to retrieve a person struct with a specific id using rpc-json over http.
+Then we want to save this person after we changed a property.
 (Error handling is omitted here)
 
 ```go
@@ -37,13 +34,10 @@ type Person struct {
 }
 
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-    rpcClient.SetBasicAuth("alex", "secret")
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
 
-    response, _ := rpcClient.Call("getPersonById", 123)
-
-    person := Person{}
-    response.GetObject(&person)
+    var person *Person
+    rpcClient.CallFor(&person, "getPersonById", 4711)
 
     person.Age = 33
     rpcClient.Call("updatePerson", person)
@@ -61,9 +55,9 @@ This calls generate and send a valid rpc-json object. (see: http://www.jsonrpc.o
 
 ```go
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-    response, _ := rpcClient.Call("getDate")
-    // generates body: {"jsonrpc":"2.0","method":"getDate","id":0}
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
+    rpcClient.Call("getDate")
+    // generates body: {"method":"getDate","id":1,"jsonrpc":"2.0"}
 }
 ```
 
@@ -71,64 +65,19 @@ Call a function with parameter:
 
 ```go
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-    response, _ := rpcClient.Call("addNumbers", 1, 2)
-    // generates body: {"jsonrpc":"2.0","method":"addNumbers","params":[1,2],"id":0}
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
+    rpcClient.Call("addNumbers", 1, 2)
+    // generates body: {"method":"addNumbers","params":[1,2],"id":1,"jsonrpc":"2.0"}
 }
 ```
 
-Call a function with arbitrary array parameters:
+Call a function with arbitrary parameters:
 
 ```go
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-    response, _ := rpcClient.Call("createPerson", "Alex", 33, "Germany")
-    // generates body: {"jsonrpc":"2.0","method":"createPerson","params":["Alex",33,"Germany"],"id":0}
-}
-```
-
-Call a function with named parameters:
-
-```go
-func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-	rpcClient.CallNamed("createPerson", map[string]interface{}{
-		"name":      "Bartholomew Allen",
-		"nicknames": []string{"Barry", "Flash",},
-		"male":      true,
-		"age":       28,
-		"address":   map[string]interface{}{"street": "Main Street", "city": "Central City"},
-	})
-    // generates body: {"jsonrpc":"2.0","method":"createPerson","params":
-	//	{"name": "Bartholomew Allen", "nicknames": ["Barry", "Flash"], "male": true, "age": 28,
-	//	"address": {"street": "Main Street", "city": "Central City"}}
-	//	,"id":0}
-}
-```
-
-Call a function with convenient go JSON struct:
-
-```go
-func main() {
-    type Person struct {
-        Id   int `json:"id"`
-        Name string `json:"name"`
-        Age  int `json:"age"`
-    }
-
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-
-    // only nil, struct or pointer of struct allowed
-	rpcClient.CallNamed("createPerson", &Person{
-	  	"Id": 4711,
-	  	"Name": "Alex",
-	  	"Age": 35,
-	})
-	// generates body:
-    // {"jsonrpc":"2.0","method":"createPerson","params":{"id":4711,"name":"Alex","age":35},"id":0}
-
-	// if no parameter is required better use:
-	rpcClient.Call("getInfo")
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
+    rpcClient.Call("createPerson", "Alex", 33, "Germany")
+    // generates body: {"method":"createPerson","params":["Alex",33,"Germany"],"id":1,"jsonrpc":"2.0"}
 }
 ```
 
@@ -141,9 +90,9 @@ type Person struct {
   Country string `json:"country"`
 }
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-    response, _ := rpcClient.Call("createPerson", Person{"Alex", 33, "Germany"})
-    // generates body: {"jsonrpc":"2.0","method":"createPerson","params":[{"name":"Alex","age":33,"country":"Germany"}],"id":0}
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
+    rpcClient.Call("createPerson", &Person{"Alex", 33, "Germany"})
+    // generates body: {"jsonrpc":"2.0","method":"createPerson","params":{"name":"Alex","age":33,"country":"Germany"},"id":1}
 }
 ```
 
@@ -156,82 +105,91 @@ type Person struct {
   Country string `json:"country"`
 }
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-    response, _ := rpcClient.Call("createPersonsWithRole", []Person{{"Alex", 33, "Germany"}, {"Barney", 38, "Germany"}}, []string{"Admin", "User"})
-    // generates body: {"jsonrpc":"2.0","method":"createPersonsWithRole","params":[[{"name":"Alex","age":33,"country":"Germany"},{"name":"Barney","age":38,"country":"Germany"}],["Admin","User"]],"id":0}
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
+    rpcClient.Call("createPersonsWithRole", &Person{"Alex", 33, "Germany"}, &Person{"Barney", 38, "Germany"}, []string{"Admin", "User"})
+    // generates body: {"jsonrpc":"2.0","method":"createPersonsWithRole","params":[{"name":"Alex","age":33,"country":"Germany"},{"name":"Barney","age":38,"country":"Germany"},["Admin","User"]],"id":1}
 }
 ```
 
-### Notification
-
-A jsonrpc notification is a rpc call to the server without expecting a response.
-Only an error object is returned in case of networkt / http error.
-No id field is set in the request json object. (see: http://www.jsonrpc.org/specification#notification)
-
-Execute an simple notification:
+Some examples and resulting JSON-RPC objects:
 
 ```go
-func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-    err := rpcClient.Notification("disconnectClient", 123)
-    if err != nil {
-        //error handling goes here
-    }
-}
-```
+rpcClient.Call("missingParam")
+{"method":"missingParam"}
 
-### Batch rpcjson calls
+rpcClient.Call("nullParam", nil)
+{"method":"nullParam","params":[null]}
 
-A jsonrpc batch call encapsulates multiple json-rpc requests in a single rpc-service call.
-It returns an array of results (for all non-notification requests).
-(see: http://www.jsonrpc.org/specification#batch)
+rpcClient.Call("boolParam", true)
+{"method":"boolParam","params":[true]}
 
-Execute two jsonrpc calls and a single notification as batch:
+rpcClient.Call("boolParams", true, false, true)
+{"method":"boolParams","params":[true,false,true]}
 
-```go
-func main() {
-    rpcClient := jsonrpc.NewRPCClient(httpServer.URL)
+rpcClient.Call("stringParam", "Alex")
+{"method":"stringParam","params":["Alex"]}
 
-	req1 := rpcClient.NewRPCRequestObject("addNumbers", 1, 2)
-	req2 := rpcClient.NewRPCRequestObject("getPersonByName", "alex")
-	notify1 := rpcClient.NewRPCNotificationObject("disconnect", true)
+rpcClient.Call("stringParams", "JSON", "RPC")
+{"method":"stringParams","params":["JSON","RPC"]}
 
-	responses, _ := rpcClient.Batch(req1, req2, notify1)
+rpcClient.Call("numberParam", 123)
+{"method":"numberParam","params":[123]}
 
-    person := Person{}
-    response2, _ := responses.GetResponseOf(req2)
-    response2.GetObject(&person)
-}
-```
+rpcClient.Call("numberParams", 123, 321)
+{"method":"numberParams","params":[123,321]}
 
-To update the ID of an existing rpcRequest object:
-```go
-func main() {
-    rpcClient := jsonrpc.NewRPCClient(httpServer.URL)
+rpcClient.Call("floatParam", 1.23)
+{"method":"floatParam","params":[1.23]}
 
-	req1 := rpcClient.NewRPCRequestObject("addNumbers", 1, 2)
-	req2 := rpcClient.NewRPCRequestObject("getPersonByName", "alex")
-	notify1 := rpcClient.NewRPCNotifyObject("disconnect", true)
+rpcClient.Call("floatParams", 1.23, 3.21)
+{"method":"floatParams","params":[1.23,3.21]}
 
-	responses, _ := rpcClient.Batch(req1, req2, notify1)
+rpcClient.Call("manyParams", "Alex", 35, true, nil, 2.34)
+{"method":"manyParams","params":["Alex",35,true,null,2.34]}
 
-    rpcClient.UpdateRequestID(req1) // updates id to the next valid id if autoincrement is enabled
-}
+rpcClient.Call("singlePointerToStruct", &person)
+{"method":"singlePointerToStruct","params":{"name":"Alex","age":35,"country":"Germany"}}
+
+rpcClient.Call("multipleStructs", &person, &drink)
+{"method":"multipleStructs","params":[{"name":"Alex","age":35,"country":"Germany"},{"name":"Cuba Libre","ingredients":["rum","cola"]}]}
+
+rpcClient.Call("singleStructInArray", []*Person{&person})
+{"method":"singleStructInArray","params":[{"name":"Alex","age":35,"country":"Germany"}]}
+
+rpcClient.Call("namedParameters", map[string]interface{}{
+	"name": "Alex",
+	"age":  35,
+})
+{"method":"namedParameters","params":{"age":35,"name":"Alex"}}
+
+rpcClient.Call("anonymousStruct", struct {
+	Name string `json:"name"`
+	Age  int    `json:"age"`
+}{"Alex", 33})
+{"method":"anonymousStructWithTags","params":{"name":"Alex","age":33}}
+
+rpcClient.Call("structWithNullField", struct {
+	Name    string  `json:"name"`
+	Address *string `json:"address"`
+}{"Alex", nil})
+{"method":"structWithNullField","params":{"name":"Alex","address":null}}
 ```
 
 ### Working with rpc-json responses
 
 
-Before working with the response object, make sure to check err != nil first.
-This error indicates problems on the network / http level of an error when parsing the json response.
+Before working with the response object, make sure to check err != nil.
+Also keep in mind that the json-rpc result field can be null even on success.
 
 ```go
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
     response, err := rpcClient.Call("addNumbers", 1, 2)
     if err != nil {
         //error handling goes here
     }
+
+    // response != nil, but response.Result can be nil if server did not provide a result, or if response.Error != nil
 }
 ```
 
@@ -240,14 +198,14 @@ The next thing you have to check is if an rpc-json protocol error occoured. This
 
 ```go
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
     response, err := rpcClient.Call("addNumbers", 1, 2)
     if err != nil {
         //error handling goes here
     }
 
     if response.Error != nil {
-        // check response.Error.Code, response.Error.Message, response.Error.Data  here
+        // check response.Error.Code, response.Error.Message and optional response.Error.Data
     }
 }
 ```
@@ -260,18 +218,17 @@ Again: check for err != nil here to be sure the expected type was provided in th
 
 ```go
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
     response, _ := rpcClient.Call("addNumbers", 1, 2)
 
     result, err := response.GetInt()
     if err != nil {
-        // result seems not to be an integer value
+        // result cannot be unmarshalled as integer
     }
 
     // helpers provided for all primitive types:
-    response.GetInt() // int32 or int64 depends on architecture / implementation
-    response.GetInt64()
-    response.GetFloat64()
+    response.GetInt()
+    response.GetFloat()
     response.GetString()
     response.GetBool()
 }
@@ -288,68 +245,144 @@ type Person struct {
 }
 
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
     response, _ := rpcClient.Call("getPersonById", 123)
 
-    person := Person{}
-    err := response.GetObject(&Person) // expects a rpc-object result value like: {"id": 123, "name": "alex", "age": 33}
+    var person *Person
+    err := response.GetObject(&person) // expects a rpc-object result value like: {"id": 123, "name": "alex", "age": 33}
+    if err != nil || person == nil {
+        // some error on json unmarshal level or json result field was null
+    }
+
+    fmt.Println(person.Name)
+
+    // we can also set default values if they are missing from the result, or result == null:
+    person2 := &Person{
+        Id: 0,
+        Name: "<empty>",
+        Age: -1,
+    }
+    err := response.GetObject(&person2) // expects a rpc-object result value like: {"id": 123, "name": "alex", "age": 33}
+    if err != nil || person2 == nil {
+        // some error on json unmarshal level or json result field was null
+    }
+
+    fmt.Println(person2.Name) // prints "<empty>" if "name" field was missing in result-json
+}
+```
+
+Retrieving arrays:
+
+```go
+func main() {
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
+    response, _ := rpcClient.Call("getRandomNumbers", 10)
+
+    rndNumbers := []int{}
+    err := response.GetObject(&rndNumbers) // expects a rpc-object result value like: [10, 188, 14, 3]
+    if err != nil {
+        // do error handling
+    }
+
+    for _, num := range rndNumbers {
+        fmt.Printf("%v\n", num)
+    }
+}
+```
+
+### Using convenient function CallFor()
+A very handy way to quickly invoke methods and retrieve results is by using CallFor()
+
+You can directly provide an object where the result should be stored. Be sure to provide it be reference.
+An error is returned if:
+- there was an network / http error
+- RPCError object is not nil (err can be casted to this object)
+- rpc result could not be parsed into provided object
+
+One of te above examples could look like this:
+
+```go
+// json annotations are only required to transform the structure back to json
+type Person struct {
+    Id   int `json:"id"`
+    Name string `json:"name"`
+    Age  int `json:"age"`
+}
+
+func main() {
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
+
+    var person *Person
+    err := rpcClient.CallFor(&person, "getPersonById", 123)
+
+    if err != nil || person == nil {
+      // handle error
+    }
 
     fmt.Println(person.Name)
 }
 ```
 
-Retrieving arrays e.g. of ints:
+Most of the time it is ok to check if a struct field is 0, empty string "" etc. to check if it was returned by the json rpc response.
+But if you want to be sure that a JSON-RPC response field was missing or not, you should use pointers to the fields.
+This is just a single example since all this Unmarshaling is standard go json functionality, exactly as if you would call json.Unmarshal(rpcResponse.ResultAsByteArray, &objectToStoreResult)
 
-```go
+```
+// json annotations are only required to transform the structure back to json
+type Person struct {
+    Id   *int `json:"id"`
+    Name *string `json:"name"`
+    Age  *int `json:"age"`
+}
+
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-    response, _ := rpcClient.Call("getRandomNumbers", 10)
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
 
-    rndNumbers := []int{}
-    err := response.getObject(&rndNumbers) // expects a rpc-object result value like: [10, 188, 14, 3]
+    var person *Person
+    err := rpcClient.CallFor(&person, "getPersonById", 123)
 
-    fmt.Println(rndNumbers[0])
+    if err != nil || person == nil {
+      // handle error
+    }
+
+    if person.Name == nil {
+      // json rpc response did not provide a field "name" in the result object
+    }
 }
 ```
 
-### Basic authentication
+### Custom Headers, Basic authentication
 
-If the rpc-service is running behind a basic authentication you can easily set the credentials:
+If the rpc-service is running behind a basic authentication you can easily set the Authorization header:
 
 ```go
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-    rpcClient.SetBasicAuth("alex", "secret")
+    rpcClient := jsonrpc.NewClientWithOpts("http://my-rpc-service:8080/rpc", &jsonrpc.RPCClientOpts{
+   		CustomHeaders: map[string]string{
+   			"Authorization": "Basic " + base64.StdEncoding.EncodeToString([]byte("myUser"+":"+"mySecret")),
+   		},
+   	})
     response, _ := rpcClient.Call("addNumbers", 1, 2) // send with Authorization-Header
 }
 ```
 
-### Set custom headers
+### Using oauth
 
-Setting some custom headers (e.g. when using another authentication) is simple:
-```go
-func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-    rpcClient.SetCustomHeader("Authorization", "Bearer abcd1234")
-    response, _ := rpcClient.Call("addNumbers", 1, 2) // send with a custom Auth-Header
-}
-```
-
-### ID auto-increment
-
-Per default the ID of the json-rpc request increments automatically for each request.
-You can change this behaviour:
+Using oauth is also easy, e.g. with clientID and clientSecret authentication
 
 ```go
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-    response, _ := rpcClient.Call("addNumbers", 1, 2) // send with ID == 0
-    response, _ = rpcClient.Call("addNumbers", 1, 2) // send with ID == 1
-    rpcClient.SetNextID(10)
-    response, _ = rpcClient.Call("addNumbers", 1, 2) // send with ID == 10
-    rpcClient.SetAutoIncrementID(false)
-    response, _ = rpcClient.Call("addNumbers", 1, 2) // send with ID == 11
-    response, _ = rpcClient.Call("addNumbers", 1, 2) // send with ID == 11
+		credentials := clientcredentials.Config{
+    		ClientID:     "myID",
+    		ClientSecret: "mySecret",
+    		TokenURL:     "http://mytokenurl",
+    	}
+
+    	rpcClient := jsonrpc.NewClientWithOpts("http://my-rpc-service:8080/rpc", &jsonrpc.RPCClientOpts{
+    		HTTPClient: credentials.Client(context.Background()),
+    	})
+
+	// requests now retrieve and use an oauth token
 }
 ```
 
@@ -360,15 +393,17 @@ For example to use a proxy when executing json-rpc calls:
 
 ```go
 func main() {
-    rpcClient := jsonrpc.NewRPCClient("http://my-rpc-service:8080/rpc")
-
-    proxyURL, _ := url.Parse("http://proxy:8080")
+	proxyURL, _ := url.Parse("http://proxy:8080")
 	transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
 
 	httpClient := &http.Client{
 		Transport: transport,
 	}
 
-	rpcClient.SetHTTPClient(httpClient)
+	rpcClient := jsonrpc.NewClientWithOpts("http://my-rpc-service:8080/rpc", &jsonrpc.RPCClientOpts{
+		HTTPClient: httpClient,
+	})
+
+	// requests now use proxy
 }
 ```
