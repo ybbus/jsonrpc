@@ -323,6 +323,34 @@ func main() {
 }
 ```
 
+Most of the time it is ok to check if a struct field is 0, empty string "" etc. to check if it was returned by the json rpc response.
+But if you want to be sure that a JSON-RPC response field was missing or not, you should use pointers to the fields.
+This is just a single example since all this Unmarshaling is standard go json functionality, exactly as if you would call json.Unmarshal(rpcResponse.ResultAsByteArray, &objectToStoreResult)
+
+```
+// json annotations are only required to transform the structure back to json
+type Person struct {
+    Id   *int `json:"id"`
+    Name *string `json:"name"`
+    Age  *int `json:"age"`
+}
+
+func main() {
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
+
+    var person *Person
+    err := rpcClient.CallFor(&person, "getPersonById", 123)
+
+    if err != nil || person == nil {
+      // handle error
+    }
+
+    if person.Name == nil {
+      // json rpc response did not provide a field "name" in the result object
+    }
+}
+```
+
 ### Custom Headers, Basic authentication
 
 If the rpc-service is running behind a basic authentication you can easily set the Authorization header:
