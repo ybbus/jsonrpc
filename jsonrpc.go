@@ -116,6 +116,22 @@ func (e *RPCError) Error() string {
 	return strconv.Itoa(e.Code) + ":" + e.Message
 }
 
+// HTTPError represents a error that occurred on HTTP level.
+//
+// An error of type HTTPError is returned when a HTTP error occurred (status code)
+// and the body could not be parsed to a valid RPCResponse object that holds a RPCError.
+//
+// Otherwise a RPCResponse object is returned with a RPCError field that is not nil.
+type HTTPError struct {
+	Code int
+	err  error
+}
+
+// Error function is provided to be used as error object.
+func (e *HTTPError) Error() string {
+	return e.err.Error()
+}
+
 type rpcClient struct {
 	endpoint      string
 	httpClient    *http.Client
@@ -234,12 +250,28 @@ func (client *rpcClient) doCall(RPCRequest *RPCRequest) (*RPCResponse, error) {
 	decoder.UseNumber()
 	err = decoder.Decode(&rpcResponse)
 
+	// parsing error
 	if err != nil {
+		// if we have some http error, return it
+		if httpResponse.StatusCode >= 400 {
+			return nil, &HTTPError{
+				Code: httpResponse.StatusCode,
+				err:  fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %v", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, err.Error()),
+			}
+		}
 		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %v", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, err.Error())
 	}
 
+	// response body empty
 	if rpcResponse == nil {
-		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. unable to decode body to rpc response object", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode)
+		// if we have some http error, return it
+		if httpResponse.StatusCode >= 400 {
+			return nil, &HTTPError{
+				Code: httpResponse.StatusCode,
+				err:  fmt.Errorf("rpc call %v() on %v status code: %v. rpc response missing", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode),
+			}
+		}
+		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. rpc response missing", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode)
 	}
 
 	return rpcResponse, nil
