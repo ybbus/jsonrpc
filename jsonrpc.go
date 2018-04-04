@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -58,6 +59,8 @@ type RPCClient interface {
 	// to *RPCError.
 	//
 	CallFor(out interface{}, method string, params ...interface{}) error
+
+	CallBatch(requests []BatchRequest) (RPCResponses, error)
 }
 
 // RPCRequest represents a JSON-RPC request object.
@@ -74,8 +77,13 @@ type RPCClient interface {
 type RPCRequest struct {
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params,omitempty"`
-	ID      uint        `json:"id,omitempty"`
+	ID      int         `json:"id,omitempty"`
 	JSONRPC string      `json:"jsonrpc"`
+}
+
+type BatchRequest struct {
+	Method string
+	Params interface{}
 }
 
 // RPCResponse represents a JSON-RPC response object.
@@ -93,7 +101,7 @@ type RPCResponse struct {
 	JSONRPC string      `json:"jsonrpc"`
 	Result  interface{} `json:"result,omitempty"`
 	Error   *RPCError   `json:"error,omitempty"`
-	ID      uint        `json:"id"`
+	ID      int         `json:"id"`
 }
 
 // RPCError represents a JSON-RPC error object if an RPC error occurred.
@@ -148,6 +156,19 @@ type RPCClientOpts struct {
 	CustomHeaders map[string]string
 }
 
+// RPCResponses is of type []*RPCResponse.
+// This type is used to provide helper functions on the result list
+type RPCResponses []*RPCResponse
+
+func (res RPCResponses) HasError() bool {
+	for _, res := range res {
+		if res.Error != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // NewClient returns a new RPCClient instance with default configuration.
 //
 // endpoint: JSON-RPC service URL to which JSON-RPC requests are sent.
@@ -189,7 +210,7 @@ func (client *rpcClient) Call(method string, params ...interface{}) (*RPCRespons
 	request := &RPCRequest{
 		ID:      defaultID,
 		Method:  method,
-		Params:  transformParams(params...),
+		Params:  Params(params...),
 		JSONRPC: jsonrpcVersion,
 	}
 
@@ -207,6 +228,24 @@ func (client *rpcClient) CallFor(out interface{}, method string, params ...inter
 	}
 
 	return rpcResponse.GetObject(out)
+}
+
+func (client *rpcClient) CallBatch(requests []BatchRequest) (RPCResponses, error) {
+	rpcRequests := make([]*RPCRequest, 0)
+	if len(requests) == 0 {
+		return nil, errors.New("empty request list")
+	}
+
+	for i, req := range requests {
+		rpcRequests = append(rpcRequests, &RPCRequest{
+			Method:  req.Method,
+			Params:  req.Params,
+			ID:      i + 1,
+			JSONRPC: jsonrpcVersion,
+		})
+	}
+
+	return client.doBatchCall(rpcRequests)
 }
 
 func (client *rpcClient) newRequest(req interface{}) (*http.Request, error) {
@@ -277,7 +316,51 @@ func (client *rpcClient) doCall(RPCRequest *RPCRequest) (*RPCResponse, error) {
 	return rpcResponse, nil
 }
 
-func transformParams(params ...interface{}) interface{} {
+func (client *rpcClient) doBatchCall(rpcRequest []*RPCRequest) ([]*RPCResponse, error) {
+	httpRequest, err := client.newRequest(rpcRequest)
+	if err != nil {
+		return nil, fmt.Errorf("rpc batch call on %v: %v", httpRequest.URL.String(), err.Error())
+	}
+	httpResponse, err := client.httpClient.Do(httpRequest)
+	if err != nil {
+		return nil, fmt.Errorf("rpc batch call on %v: %v", httpRequest.URL.String(), err.Error())
+	}
+	defer httpResponse.Body.Close()
+
+	var rpcResponse RPCResponses
+	decoder := json.NewDecoder(httpResponse.Body)
+	decoder.DisallowUnknownFields()
+	decoder.UseNumber()
+	err = decoder.Decode(&rpcResponse)
+
+	// parsing error
+	if err != nil {
+		// if we have some http error, return it
+		if httpResponse.StatusCode >= 400 {
+			return nil, &HTTPError{
+				Code: httpResponse.StatusCode,
+				err:  fmt.Errorf("rpc batch call on %v status code: %v. could not decode body to rpc response: %v", httpRequest.URL.String(), httpResponse.StatusCode, err.Error()),
+			}
+		}
+		return nil, fmt.Errorf("rpc batch call on %v status code: %v. could not decode body to rpc response: %v", httpRequest.URL.String(), httpResponse.StatusCode, err.Error())
+	}
+
+	// response body empty
+	if rpcResponse == nil || len(rpcResponse) == 0 {
+		// if we have some http error, return it
+		if httpResponse.StatusCode >= 400 {
+			return nil, &HTTPError{
+				Code: httpResponse.StatusCode,
+				err:  fmt.Errorf("rpc batch call on %v status code: %v. rpc response missing", httpRequest.URL.String(), httpResponse.StatusCode),
+			}
+		}
+		return nil, fmt.Errorf("rpc batch call on %v status code: %v. rpc response missing", httpRequest.URL.String(), httpResponse.StatusCode)
+	}
+
+	return rpcResponse, nil
+}
+
+func Params(params ...interface{}) interface{} {
 	var finalParams interface{}
 
 	// if params was nil skip this and p stays nil

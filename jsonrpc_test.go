@@ -161,6 +161,111 @@ func TestRpcClient_Call(t *testing.T) {
 	Expect((<-requestChan).body).To(Equal(`{"method":"structWithNullField","params":{"name":"Alex","address":null},"id":1,"jsonrpc":"2.0"}`))
 }
 
+func TestRpcClient_CallBatch(t *testing.T) {
+	RegisterTestingT(t)
+	rpcClient := NewClient(httpServer.URL)
+
+	person := Person{
+		Name:    "Alex",
+		Age:     35,
+		Country: "Germany",
+	}
+
+	drink := Drink{
+		Name:        "Cuba Libre",
+		Ingredients: []string{"rum", "cola"},
+	}
+
+	// invalid parameters are possible: use Params()
+	rpcClient.CallBatch([]BatchRequest{
+		{Method: "singleRequest", Params: []int{3}},
+	})
+	Expect((<-requestChan).body).To(Equal(`[{"method":"singleRequest","params":[3],"id":1,"jsonrpc":"2.0"}]`))
+
+	rpcClient.CallBatch([]BatchRequest{
+		{Method: "multipleRequests1", Params: []int{1}},
+		{Method: "multipleRequests2", Params: []int{2}},
+		{Method: "multipleRequests3", Params: []int{3}},
+	})
+	Expect((<-requestChan).body).To(Equal(`[{"method":"multipleRequests1","params":[1],"id":1,"jsonrpc":"2.0"},{"method":"multipleRequests2","params":[2],"id":2,"jsonrpc":"2.0"},{"method":"multipleRequests3","params":[3],"id":3,"jsonrpc":"2.0"}]`))
+
+	// invalid params example: 3 should be wrapped in []
+	rpcClient.CallBatch([]BatchRequest{
+		{Method: "invalidParams", Params: 3},
+	})
+	Expect((<-requestChan).body).To(Equal(`[{"method":"invalidParams","params":3,"id":1,"jsonrpc":"2.0"}]`))
+
+	// use Params() for fix parameters
+	rpcClient.CallBatch([]BatchRequest{
+		{Method: "validParams", Params: Params(3)},
+	})
+	Expect((<-requestChan).body).To(Equal(`[{"method":"validParams","params":[3],"id":1,"jsonrpc":"2.0"}]`))
+
+	rpcClient.CallBatch([]BatchRequest{
+		{"nullParam", Params(nil)},
+		{"nullParams", Params(nil, nil)},
+		{"emptyParams", Params([]interface{}{})},
+		{"emptyAnyParams", Params([]string{})},
+		{"emptyObject", Params(struct{}{})},
+		{"emptyObjectList", Params([]struct{}{{}, {}})},
+		{"boolParam", Params(true)},
+		{"boolParams", Params(true, false, true)},
+		{"stringParam", Params("Alex")},
+		{"stringParams", Params("JSON", "RPC")},
+		{"numberParam", Params(123)},
+		{"numberParams", Params(123, 321)},
+		{"floatParam", Params(1.23)},
+		{"floatParams", Params(1.23, 3.21)},
+		{"manyParams", Params("Alex", 35, true, nil, 2.34)},
+		{"emptyMissingPublicFieldObject", Params(struct{ name string }{name: "Alex",})},
+		{"singleStruct", Params(person)},
+		{"singlePointerToStruct", Params(&person)},
+		{"multipleStructs", Params(person, &drink)},
+		{"singleStructInArray", Params([]interface{}{person})},
+		{"namedParameters", Params(map[string]interface{}{
+			"name": "Alex",
+			"age":  35,
+		})},
+		{"anonymousStructNoTags", Params(struct {
+			Name string
+			Age  int
+		}{"Alex", 33})},
+		{"anonymousStructWithTags", Params(struct {
+			Name string `json:"name"`
+			Age  int    `json:"age"`
+		}{"Alex", 33})},
+		{"structWithNullField", Params(struct {
+			Name    string  `json:"name"`
+			Address *string `json:"address"`
+		}{"Alex", nil})},
+	})
+
+	Expect((<-requestChan).body).To(Equal(`[{"method":"nullParam","params":[null],"id":1,"jsonrpc":"2.0"},` +
+		`{"method":"nullParams","params":[null,null],"id":2,"jsonrpc":"2.0"},` +
+		`{"method":"emptyParams","params":[],"id":3,"jsonrpc":"2.0"},` +
+		`{"method":"emptyAnyParams","params":[],"id":4,"jsonrpc":"2.0"},` +
+		`{"method":"emptyObject","params":{},"id":5,"jsonrpc":"2.0"},` +
+		`{"method":"emptyObjectList","params":[{},{}],"id":6,"jsonrpc":"2.0"},` +
+		`{"method":"boolParam","params":[true],"id":7,"jsonrpc":"2.0"},` +
+		`{"method":"boolParams","params":[true,false,true],"id":8,"jsonrpc":"2.0"},` +
+		`{"method":"stringParam","params":["Alex"],"id":9,"jsonrpc":"2.0"},` +
+		`{"method":"stringParams","params":["JSON","RPC"],"id":10,"jsonrpc":"2.0"},` +
+		`{"method":"numberParam","params":[123],"id":11,"jsonrpc":"2.0"},` +
+		`{"method":"numberParams","params":[123,321],"id":12,"jsonrpc":"2.0"},` +
+		`{"method":"floatParam","params":[1.23],"id":13,"jsonrpc":"2.0"},` +
+		`{"method":"floatParams","params":[1.23,3.21],"id":14,"jsonrpc":"2.0"},` +
+		`{"method":"manyParams","params":["Alex",35,true,null,2.34],"id":15,"jsonrpc":"2.0"},` +
+		`{"method":"emptyMissingPublicFieldObject","params":{},"id":16,"jsonrpc":"2.0"},` +
+		`{"method":"singleStruct","params":{"name":"Alex","age":35,"country":"Germany"},"id":17,"jsonrpc":"2.0"},` +
+		`{"method":"singlePointerToStruct","params":{"name":"Alex","age":35,"country":"Germany"},"id":18,"jsonrpc":"2.0"},` +
+		`{"method":"multipleStructs","params":[{"name":"Alex","age":35,"country":"Germany"},{"name":"Cuba Libre","ingredients":["rum","cola"]}],"id":19,"jsonrpc":"2.0"},` +
+		`{"method":"singleStructInArray","params":[{"name":"Alex","age":35,"country":"Germany"}],"id":20,"jsonrpc":"2.0"},` +
+		`{"method":"namedParameters","params":{"age":35,"name":"Alex"},"id":21,"jsonrpc":"2.0"},` +
+		`{"method":"anonymousStructNoTags","params":{"Name":"Alex","Age":33},"id":22,"jsonrpc":"2.0"},` +
+		`{"method":"anonymousStructWithTags","params":{"name":"Alex","age":33},"id":23,"jsonrpc":"2.0"},` +
+		`{"method":"structWithNullField","params":{"name":"Alex","address":null},"id":24,"jsonrpc":"2.0"}]`))
+}
+
 // test if the result of an an rpc request is parsed correctly and if errors are thrown correctly
 func TestRpcJsonResponseStruct(t *testing.T) {
 	RegisterTestingT(t)
@@ -456,6 +561,369 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	Expect(res.Error).To(BeNil())
 	err = res.GetObject(nil)
 	Expect(err).NotTo(BeNil())
+}
+
+func TestRpcBatchJsonResponseStruct(t *testing.T) {
+	RegisterTestingT(t)
+	rpcClient := NewClient(httpServer.URL)
+
+	// empty return body is an error
+	responseBody = ``
+	res, err := rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).NotTo(BeNil())
+	Expect(res).To(BeNil())
+
+	// not a json body is an error
+	responseBody = `{ "not": "a", "json": "object"`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).NotTo(BeNil())
+	Expect(res).To(BeNil())
+
+	// field "anotherField" not allowed in rpc response is an error
+	responseBody = `{ "anotherField": "norpc"}`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).NotTo(BeNil())
+	Expect(res).To(BeNil())
+
+	// TODO: result must contain one of "result", "error"
+	// TODO: is there an efficient way to do this?
+	/*responseBody = `[{}]`
+	res, err = rpcClient.Call("something", 1, 2, 3)
+	<-requestChan
+	Expect(err).NotTo(BeNil())
+	Expect(res).To(BeNil())*/
+
+	// result must be wrapped in array on batch request
+	responseBody = `{"result": null}`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err.Error()).NotTo(BeNil())
+
+	// result ok since in arrary
+	responseBody = `[{"result": null}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(len(res)).To(Equal(1))
+	Expect(res[0].Result).To(BeNil())
+
+	// error null is ok
+	responseBody = `[{"error": null}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res[0].Result).To(BeNil())
+	Expect(res[0].Error).To(BeNil())
+
+	// result and error null is ok
+	responseBody = `[{"result": null, "error": null}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res[0].Result).To(BeNil())
+	Expect(res[0].Error).To(BeNil())
+
+	// TODO: result must not contain both of "result", "error" != null
+	// TODO: is there an efficient way to do this?
+	/*responseBody = `[{ "result": 123, "error": {"code": 123, "message": "something wrong"}}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).NotTo(BeNil())
+	Expect(res).To(BeNil())*/
+
+	// result string is ok
+	responseBody = `[{"result": "ok","id":1}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res[0].Result).To(Equal("ok"))
+	Expect(res[0].ID).To(Equal(1))
+
+	// result with error null is ok
+	responseBody = `[{"result": "ok", "error": null}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res[0].Result).To(Equal("ok"))
+
+	// error with result null is ok
+	responseBody = `[{"error": {"code": 123, "message": "something wrong"}, "result": null}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res[0].Result).To(BeNil())
+	Expect(res[0].Error.Code).To(Equal(123))
+	Expect(res[0].Error.Message).To(Equal("something wrong"))
+
+	// TODO: empty error is not ok, must at least contain code and message
+	/*responseBody = `[{ "error": {}}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res[0].Result).To(BeNil())
+	Expect(res[0].Error).NotTo(BeNil())*//*
+
+	// TODO: only code in error is not ok, must at least contain code and message
+	*//*responseBody = `[{ "error": {"code": 123}}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res[0].Result).To(BeNil())
+	Expect(res[0].Error).NotTo(BeNil())*//*
+
+	// TODO: only message in error is not ok, must at least contain code and message
+	*//*responseBody = `[{ "error": {"message": "something wrong"}}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res[0].Result).To(BeNil())
+	Expect(res[0].Error).NotTo(BeNil())*/
+
+	// error with code and message is ok
+	responseBody = `[{ "error": {"code": 123, "message": "something wrong"}}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res[0].Result).To(BeNil())
+	Expect(res[0].Error.Code).To(Equal(123))
+	Expect(res[0].Error.Message).To(Equal("something wrong"))
+
+	// check results
+
+	// should return int correctly
+	responseBody = `[{ "result": 1 }]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res[0].Error).To(BeNil())
+	i, err := res[0].GetInt()
+	Expect(err).To(BeNil())
+	Expect(i).To(Equal(int64(1)))
+
+	// error on wrong type
+	i = 3
+	responseBody = `[{ "result": "notAnInt" }]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res[0].Error).To(BeNil())
+	i, err = res[0].GetInt()
+	Expect(err).NotTo(BeNil())
+	Expect(i).To(Equal(int64(0)))
+
+	var p *Person
+	responseBody = `[{"id":1, "result": {"name": "Alex", "age": 35}}, {"id":2, "result": {"name": "Lena", "age": 2}}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+
+	<-requestChan
+	Expect(err).To(BeNil())
+
+	Expect(res[0].Error).To(BeNil())
+	Expect(res[0].ID).To(Equal(1))
+
+	Expect(res[1].Error).To(BeNil())
+	Expect(res[1].ID).To(Equal(2))
+
+	err = res[0].GetObject(&p)
+	Expect(p.Name).To(Equal("Alex"))
+	Expect(p.Age).To(Equal(35))
+
+	err = res[1].GetObject(&p)
+	Expect(p.Name).To(Equal("Lena"))
+	Expect(p.Age).To(Equal(2))
+
+	// check if error occurred
+	responseBody = `[{ "result": "someresult", "error": null}, { "result": null, "error": {"code": 123, "message": "something wrong"}}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.HasError()).To(BeTrue())
+
+	// check if error occurred
+	responseBody = `[{ "result": null, "error": {"code": 123, "message": "something wrong"}}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.HasError()).To(BeTrue())
+	// check if error occurred
+	responseBody = `[{ "result": null, "error": {"code": 123, "message": "something wrong"}}]`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.HasError()).To(BeTrue())
+
+	/*
+	// TODO: How to check if result could be parsed or if it is default?
+	p = nil
+	responseBody = `{ "result": {"anotherField": "something"} }`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.Error).To(BeNil())
+	err = res.GetObject(&p)
+	Expect(err).To(BeNil())
+	Expect(p).NotTo(BeNil())
+
+	// TODO: HERE######
+	var pp *PointerFieldPerson
+	responseBody = `{ "result": {"anotherField": "something", "country": "Germany"} }`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.Error).To(BeNil())
+	err = res.GetObject(&pp)
+	Expect(err).To(BeNil())
+	Expect(pp.Name).To(BeNil())
+	Expect(pp.Age).To(BeNil())
+	Expect(*pp.Country).To(Equal("Germany"))
+
+	p = nil
+	responseBody = `{ "result": null }`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.Error).To(BeNil())
+	err = res.GetObject(&p)
+	Expect(err).To(BeNil())
+	Expect(p).To(BeNil())
+
+	// passing nil is an error
+	p = nil
+	responseBody = `{ "result": null }`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.Error).To(BeNil())
+	err = res.GetObject(p)
+	Expect(err).NotTo(BeNil())
+	Expect(p).To(BeNil())
+
+	p2 := &Person{
+		Name: "Alex",
+	}
+	responseBody = `{ "result": null }`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.Error).To(BeNil())
+	err = res.GetObject(&p2)
+	Expect(err).To(BeNil())
+	Expect(p2).To(BeNil())
+
+	p2 = &Person{
+		Name: "Alex",
+	}
+	responseBody = `{ "result": {"age": 35} }`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.Error).To(BeNil())
+	err = res.GetObject(p2)
+	Expect(err).To(BeNil())
+	Expect(p2.Name).To(Equal("Alex"))
+	Expect(p2.Age).To(Equal(35))
+
+	// prefilled struct is kept on no result
+	p3 := Person{
+		Name: "Alex",
+	}
+	responseBody = `{ "result": null }`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.Error).To(BeNil())
+	err = res.GetObject(&p3)
+	Expect(err).To(BeNil())
+	Expect(p3.Name).To(Equal("Alex"))
+
+	// prefilled struct is extended / overwritten
+	p3 = Person{
+		Name: "Alex",
+		Age:  123,
+	}
+	responseBody = `{ "result": {"age": 35, "country": "Germany"} }`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.Error).To(BeNil())
+	err = res.GetObject(&p3)
+	Expect(err).To(BeNil())
+	Expect(p3.Name).To(Equal("Alex"))
+	Expect(p3.Age).To(Equal(35))
+	Expect(p3.Country).To(Equal("Germany"))
+
+	// nil is an error
+	responseBody = `{ "result": {"age": 35} }`
+	res, err = rpcClient.CallBatch([]BatchRequest{
+		{"something", Params(1, 2, 3)},
+	})
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res.Error).To(BeNil())
+	err = res.GetObject(nil)
+	Expect(err).NotTo(BeNil())
+	*/
 }
 
 func TestRpcClient_CallFor(t *testing.T) {
