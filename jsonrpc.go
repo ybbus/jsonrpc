@@ -244,6 +244,7 @@ type RPCClientOpts struct {
 // This type is used to provide helper functions on the result list
 type RPCResponses []*RPCResponse
 
+// AsMap returns the responses as map with response id as key.
 func (res RPCResponses) AsMap() map[int]*RPCResponse {
 	resMap := make(map[int]*RPCResponse, 0)
 	for _, r := range res {
@@ -253,6 +254,7 @@ func (res RPCResponses) AsMap() map[int]*RPCResponse {
 	return resMap
 }
 
+// GetByID returns the response object of the given id, nil if it does not exist.
 func (res RPCResponses) GetByID(id int) *RPCResponse {
 	for _, r := range res {
 		if r.ID == id {
@@ -263,6 +265,7 @@ func (res RPCResponses) GetByID(id int) *RPCResponse {
 	return nil
 }
 
+// HasError returns true if one of the response objects has Error field != nil
 func (res RPCResponses) HasError() bool {
 	for _, res := range res {
 		if res.Error != nil {
