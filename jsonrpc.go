@@ -13,16 +13,15 @@ import (
 
 const (
 	jsonrpcVersion = "2.0"
-	defaultID      = 1
 )
 
 // RPCClient sends JSON-RPC requests over HTTP to the provided JSON-RPC backend.
 //
 // RPCClient is created using the factory function NewClient().
 type RPCClient interface {
-	// Call is a very handy function to send a JSON-RPC request to the server endpoint.
+	// Call is used to send a JSON-RPC request to the server endpoint.
 	//
-	// params can only be an array or an object, no primitive values.
+	// The spec states, that params can only be an array or an object, no primitive values.
 	// So there are a few simple rules to notice:
 	//
 	// 1. no params: params field is omitted. e.g. Call("getinfo")
@@ -46,21 +45,73 @@ type RPCClient interface {
 	// for more information, see the examples or the unit tests
 	Call(method string, params ...interface{}) (*RPCResponse, error)
 
+	// CallRaw is like Call() but without magic in the requests.Params field.
+	// The RPCRequest object is sent exactly as you provide it.
+	// See docs: NewRequest, RPCRequest, Params()
+	//
+	// It is recommended to first consider Call() and CallFor()
+	CallRaw(request *RPCRequest) (*RPCResponse, error)
+
 	// CallFor is a very handy function to send a JSON-RPC request to the server endpoint
 	// and directly specify an object to store the response.
 	//
 	// out: will store the unmarshaled object, if request was successful.
 	// should always be provided by references. can be nil even on success.
+	// the behaviour is the same as expected from json.Unmarshal()
 	//
 	// method and params: see Call() function
 	//
-	// if the request was not successful or the rpc response returns an error,
-	// error holds the error object. if it was an JSON-RPC error it can be casted
+	// if the request was not successful (network, http error) or the rpc response returns an error,
+	// an error is returned. if it was an JSON-RPC error it can be casted
 	// to *RPCError.
 	//
 	CallFor(out interface{}, method string, params ...interface{}) error
 
-	CallBatch(requests []BatchRequest) (RPCResponses, error)
+	// CallBatch invokes a list of RPCRequests in a single batch request.
+	//
+	// Most convenient is to use the following form:
+	// CallBatch(RPCRequests{
+	//   Batch("myMethod1", 1, 2, 3),
+	//   Batch("myMethod2), "Test"),
+	// })
+	//
+	// You can create the []*RPCRequest array yourself, but it is not recommended and you should notice the following:
+	// - field Params is sent as provided, so Params: 2 forms an invalid json (correct would be Params: []int{2})
+	// - you can use the helper function Params(1, 2, 3) to use the same format as in Call()
+	// - field JSONRPC is overwritten and set to value: "2.0"
+	// - field ID is overwritten and set incrementally and maps to the array position (e.g. requests[5].ID == 5)
+	//
+	//
+	// Returns RPCResponses that is of type []*RPCResponse
+	// - note that a list of RPCResponses can be received unordered so it can happen that: responses[i] != responses[i].ID
+	// - RPCPersponses is enriched with helper functions e.g.: responses.HasError() returns  true if one of the responses holds an RPCError
+	CallBatch(requests RPCRequests) (RPCResponses, error)
+
+	// CallBatchRaw invokes a list of RPCRequests in a single batch request.
+	// It sends the RPCRequests parameter is it passed (no magic, no id autoincrement).
+	//
+	// Consider to use CallBatch() instead except you have some good reason not to.
+	//
+	// CallBatchRaw(RPCRequests{
+	//   &RPCRequest{
+	//     ID: 123,            // this won't be replaced in CallBatchRaw
+	//     JSONRPC: "wrong",   // this won't be replaced in CallBatchRaw
+	//     Method: "myMethod1",
+	//     Params: []int{1},   // there is no magic, be sure to only use array or object
+	//   },
+	//   &RPCRequest{
+	//     ID: 612,
+	//     JSONRPC: "2.0",
+	//     Method: "myMethod2",
+	//     Params: Params("Alex", 35, true), // you can use helper function Params() (see doc)
+	//   },
+	// })
+	//
+	// Returns RPCResponses that is of type []*RPCResponse
+	// - note that a list of RPCResponses can be received unordered
+	// - the id's must be mapped against the id's you provided
+	// - RPCPersponses is enriched with helper functions e.g.: responses.HasError() returns  true if one of the responses holds an RPCError
+	CallBatchRaw(requests RPCRequests) (RPCResponses, error)
 }
 
 // RPCRequest represents a JSON-RPC request object.
@@ -74,16 +125,49 @@ type RPCClient interface {
 // JSONRPC: must always be set to "2.0" for JSON-RPC version 2.0
 //
 // See: http://www.jsonrpc.org/specification#request_object
+//
+// Most of the time you shouldn't create the RPCRequest object yourself.
+// The following functions do that for you:
+// Call(), CallFor(), NewRequest()
+//
+// If you want to create it yourself (e.g. in batch or CallRaw()), consider using Params().
+// Params() is a helper function that uses the same parameter syntax as Call().
+//
+// e.g. to manually create an RPCRequest object:
+// request := &RPCRequest{
+//   Method: "myMethod",
+//   Params: Params("Alex", 35, true),
+// }
+//
+// If you know what you are doing you can omit the Params() call to avoid some reflection but potentially create incorrect rpc requests:
+//request := &RPCRequest{
+//   Method: "myMethod",
+//   Params: 2, <-- invalid since a single primitive value must be wrapped in an array --> no magic without Params()
+// }
+//
+// correct:
+// request := &RPCRequest{
+//   Method: "myMethod",
+//   Params: []int{2}, <-- invalid since a single primitive value must be wrapped in an array
+// }
 type RPCRequest struct {
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params,omitempty"`
-	ID      int         `json:"id,omitempty"`
+	ID      int         `json:"id"`
 	JSONRPC string      `json:"jsonrpc"`
 }
 
-type BatchRequest struct {
-	Method string
-	Params interface{}
+// NewRequest returns a new RPCRequest that can be created using the same convenient parameter syntax as Call()
+//
+// e.g. NewRequest("myMethod", "Alex", 35, true)
+func NewRequest(method string, params ...interface{}) *RPCRequest {
+	request := &RPCRequest{
+		Method:  method,
+		Params:  Params(params...),
+		JSONRPC: jsonrpcVersion,
+	}
+
+	return request
 }
 
 // RPCResponse represents a JSON-RPC response object.
@@ -92,7 +176,7 @@ type BatchRequest struct {
 //
 // Error: holds an RPCError object if an error occurred. must be nil on success.
 //
-// ID: may always be 1 for single requests. should be unique for every request in one batch request.
+// ID: may always be 0 for single requests. is unique for each request in a batch call (see CallBatch())
 //
 // JSONRPC: must always be set to "2.0" for JSON-RPC version 2.0
 //
@@ -160,6 +244,25 @@ type RPCClientOpts struct {
 // This type is used to provide helper functions on the result list
 type RPCResponses []*RPCResponse
 
+func (res RPCResponses) AsMap() map[int]*RPCResponse {
+	resMap := make(map[int]*RPCResponse, 0)
+	for _, r := range res {
+		resMap[r.ID] = r
+	}
+
+	return resMap
+}
+
+func (res RPCResponses) GetByID(id int) *RPCResponse {
+	for _, r := range res {
+		if r.ID == id {
+			return r
+		}
+	}
+
+	return nil
+}
+
 func (res RPCResponses) HasError() bool {
 	for _, res := range res {
 		if res.Error != nil {
@@ -168,6 +271,10 @@ func (res RPCResponses) HasError() bool {
 	}
 	return false
 }
+
+// RPCRequests is of type []*RPCRequest.
+// This type is used to provide helper functions on the request list
+type RPCRequests []*RPCRequest
 
 // NewClient returns a new RPCClient instance with default configuration.
 //
@@ -208,11 +315,15 @@ func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 func (client *rpcClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
 
 	request := &RPCRequest{
-		ID:      defaultID,
 		Method:  method,
 		Params:  Params(params...),
 		JSONRPC: jsonrpcVersion,
 	}
+
+	return client.doCall(request)
+}
+
+func (client *rpcClient) CallRaw(request *RPCRequest) (*RPCResponse, error) {
 
 	return client.doCall(request)
 }
@@ -230,22 +341,25 @@ func (client *rpcClient) CallFor(out interface{}, method string, params ...inter
 	return rpcResponse.GetObject(out)
 }
 
-func (client *rpcClient) CallBatch(requests []BatchRequest) (RPCResponses, error) {
-	rpcRequests := make([]*RPCRequest, 0)
+func (client *rpcClient) CallBatch(requests RPCRequests) (RPCResponses, error) {
 	if len(requests) == 0 {
 		return nil, errors.New("empty request list")
 	}
 
 	for i, req := range requests {
-		rpcRequests = append(rpcRequests, &RPCRequest{
-			Method:  req.Method,
-			Params:  req.Params,
-			ID:      i + 1,
-			JSONRPC: jsonrpcVersion,
-		})
+		req.ID = i
+		req.JSONRPC = jsonrpcVersion
 	}
 
-	return client.doBatchCall(rpcRequests)
+	return client.doBatchCall(requests)
+}
+
+func (client *rpcClient) CallBatchRaw(requests RPCRequests) (RPCResponses, error) {
+	if len(requests) == 0 {
+		return nil, errors.New("empty request list")
+	}
+
+	return client.doBatchCall(requests)
 }
 
 func (client *rpcClient) newRequest(req interface{}) (*http.Request, error) {
@@ -360,6 +474,29 @@ func (client *rpcClient) doBatchCall(rpcRequest []*RPCRequest) ([]*RPCResponse, 
 	return rpcResponse, nil
 }
 
+// Params is a helper function that uses the same parameter syntax as Call().
+// But you should consider to always use NewRequest() instead.
+//
+// e.g. to manually create an RPCRequest object:
+// request := &RPCRequest{
+//   Method: "myMethod",
+//   Params: Params("Alex", 35, true),
+// }
+//
+// same with new request:
+// request := NewRequest("myMethod", "Alex", 35, true)
+//
+// If you know what you are doing you can omit the Params() call but potentially create incorrect rpc requests:
+//request := &RPCRequest{
+//   Method: "myMethod",
+//   Params: 2, <-- invalid since a single primitive value must be wrapped in an array --> no magic without Params()
+// }
+//
+// correct:
+// request := &RPCRequest{
+//   Method: "myMethod",
+//   Params: []int{2}, <-- invalid since a single primitive value must be wrapped in an array
+// }
 func Params(params ...interface{}) interface{} {
 	var finalParams interface{}
 

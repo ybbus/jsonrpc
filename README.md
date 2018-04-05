@@ -9,11 +9,9 @@ The implementation is based on the JSON-RPC 2.0 specification: http://www.jsonrp
 Supports:
 - requests with arbitrary parameters
 - convenient response retrieval
+- batch requests
 - custom http client (e.g. proxy, tls config)
 - custom headers (e.g. basic auth)
-
-wip:
-- batch requests
 
 ## Installation
 
@@ -179,21 +177,39 @@ rpcClient.Call("structWithNullField", struct {
 
 
 Before working with the response object, make sure to check err != nil.
-Also keep in mind that the json-rpc result field can be null even on success.
+Also keep in mind that the json-rpc result field can be nil even on success.
 
 ```go
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
     response, err := rpcClient.Call("addNumbers", 1, 2)
     if err != nil {
-        //error handling goes here
+      // error handling goes here e.g. network / http error
     }
-
-    // response != nil, but response.Result can be nil if server did not provide a result, or if response.Error != nil
 }
 ```
 
-The next thing you have to check is if an rpc-json protocol error occoured. This is done by checking if the Error field in the rpc-response != nil:
+If an http error occurred, maybe you are interested in the error code (403 etc.)
+```go
+func main() {
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
+    response, err := rpcClient.Call("addNumbers", 1, 2)
+
+    switch e := err.(type) {
+      case nil: // if error is nil, do nothing
+      case *HTTPError:
+        // use e.Code here
+        return
+      default:
+        // any other error
+        return
+    }
+
+    // no error, go on...
+}
+```
+
+The next thing you have to check is if an rpc-json protocol error occurred. This is done by checking if the Error field in the rpc-response != nil:
 (see: http://www.jsonrpc.org/specification#error_object)
 
 ```go
@@ -205,12 +221,13 @@ func main() {
     }
 
     if response.Error != nil {
+        // rpc error handling goes here
         // check response.Error.Code, response.Error.Message and optional response.Error.Data
     }
 }
 ```
 
-After making sure that no errors occoured you can now examine the RPCResponse object.
+After making sure that no errors occurred you can now examine the RPCResponse object.
 When executing a json-rpc request, most of the time you will be interested in the "result"-property of the returned json-rpc response object.
 (see: http://www.jsonrpc.org/specification#response_object)
 The library provides some helper functions to retrieve the result in the data format you are interested in.
@@ -323,16 +340,15 @@ func main() {
 }
 ```
 
-Most of the time it is ok to check if a struct field is 0, empty string "" etc. to check if it was returned by the json rpc response.
+Most of the time it is ok to check if a struct field is 0, empty string "" etc. to check if it was provided by the json rpc response.
 But if you want to be sure that a JSON-RPC response field was missing or not, you should use pointers to the fields.
 This is just a single example since all this Unmarshaling is standard go json functionality, exactly as if you would call json.Unmarshal(rpcResponse.ResultAsByteArray, &objectToStoreResult)
 
 ```
-// json annotations are only required to transform the structure back to json
 type Person struct {
-    Id   *int `json:"id"`
+    Id   *int    `json:"id"`
     Name *string `json:"name"`
-    Age  *int `json:"age"`
+    Age  *int    `json:"age"`
 }
 
 func main() {
@@ -350,6 +366,53 @@ func main() {
     }
 }
 ```
+
+### Using RPC Batch Requests
+
+You can send multiple RPC-Requests in one single HTTP request using RPC Batch Requests.
+
+```
+func main() {
+    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
+
+    response, _ := rpcClient.CallBatch(RPCRequests{
+      NewRequest("myMethod1", 1, 2, 3),
+      NewRequest("anotherMethod", "Alex", 35, true),
+      NewRequest("myMethod2", &Person{
+        Name: "Emmy",
+        Age: 4,
+      }),
+    })
+}
+```
+
+Keep the following in mind:
+- the request / response id's are important to map the requests to the responses. CallBatch() automatically sets the ids to requests[i].ID == i
+- the response can be provided in an unordered and maybe incomplete form
+- when you want to set the id yourself use, CallRaw()
+
+There are some helper methods for batch request results:
+```
+func main() {
+    // [...]
+
+    result.HasErrors() // returns true if one of the rpc response objects has Error field != nil
+    resultMap := result.AsMap() // returns a map for easier retrieval of requests
+
+    if response123, ok := resultMap[123]; ok {
+      // response object with id 123 exists, use it here
+      // response123.ID == 123
+      response123.GetObjectAs(&person)
+      // ...
+    }
+
+}
+```
+
+### Raw functions
+There are also Raw function calls. Consider the non Raw functions first, unless you know what you are doing.
+You can create invalid json rpc requests and have to take care of id's etc. yourself.
+Also check documentation of Params() for raw requests.
 
 ### Custom Headers, Basic authentication
 
