@@ -71,8 +71,8 @@ type RPCClient interface {
 	//
 	// Most convenient is to use the following form:
 	// CallBatch(RPCRequests{
-	//   Batch("myMethod1", 1, 2, 3),
-	//   Batch("myMethod2), "Test"),
+	//   NewRequest("myMethod1", 1, 2, 3),
+	//   NewRequest("myMethod2", "Test"),
 	// })
 	//
 	// You can create the []*RPCRequest array yourself, but it is not recommended and you should notice the following:
