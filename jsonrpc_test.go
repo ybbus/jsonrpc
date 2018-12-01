@@ -159,6 +159,16 @@ func TestRpcClient_Call(t *testing.T) {
 		Address *string `json:"address"`
 	}{"Alex", nil})
 	Expect((<-requestChan).body).To(Equal(`{"method":"structWithNullField","params":{"name":"Alex","address":null},"id":0,"jsonrpc":"2.0"}`))
+
+	rpcClient.Call("nestedStruct",
+		Planet{
+			Name: "Mars",
+			Properties: Properties{
+				Distance: 54600000,
+				Color:    "red",
+			},
+		})
+	Expect((<-requestChan).body).To(Equal(`{"method":"nestedStruct","params":{"name":"Mars","properties":{"distance":54600000,"color":"red"}},"id":0,"jsonrpc":"2.0"}`))
 }
 
 func TestRpcClient_CallBatch(t *testing.T) {
@@ -1132,4 +1142,14 @@ type PointerFieldPerson struct {
 type Drink struct {
 	Name        string   `json:"name"`
 	Ingredients []string `json:"ingredients"`
+}
+
+type Planet struct {
+	Name       string     `json:"name"`
+	Properties Properties `json:"properties"`
+}
+
+type Properties struct {
+	Distance int    `json:"distance"`
+	Color    string `json:"color"`
 }
