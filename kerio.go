@@ -20,6 +20,8 @@ const (
 //
 // RPCClient is created using the factory function NewClient().
 type RPCClient interface {
+	// Login is needed to get the token
+	Login(login, password string, app Application) error
 	// Call is used to send a JSON-RPC request to the server endpoint.
 	//
 	// The spec states, that params can only be an array or an object, no primitive values.
@@ -242,12 +244,14 @@ type RPCClientOpts struct {
 	HTTPClient    *http.Client
 	CustomHeaders map[string]string
 }
+
 // Application contains a description of the application.
 type Application struct {
-	Name string
-	Vendor string
+	Name    string
+	Vendor  string
 	Version string
 }
+
 // RPCResponses is of type []*RPCResponse.
 // This type is used to provide helper functions on the result list
 type RPCResponses []*RPCResponse
@@ -304,7 +308,7 @@ func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 	rpcClient := &rpcClient{
 		endpoint:      endpoint,
 		token:         "",
-		httpClient:    &http.Client{Jar:jar},
+		httpClient:    &http.Client{Jar: jar},
 		customHeaders: make(map[string]string),
 	}
 
@@ -328,16 +332,13 @@ func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 func (client *rpcClient) Login(login, password string, app Application) error {
 	request := &RPCRequest{
 		Method: "Session.login",
-		Params: Params(map[string] interface{}{
-			"jsonrpc":"2.0",
-			"id":1,
-			"method":"Session.login",
-			"params": map[string] interface{}{
-			"userName":login,
-			"password": password,
-			"application":map[string] string {"name":app.Name,"vendor":app.Vendor,"version":app.Version},
-		},}),
+		Params: map[string]interface{}{
+			"userName":    login,
+			"password":    password,
+			"application": map[string]string{"name": app.Name, "vendor": app.Vendor, "version": app.Version},
+			},
 		JSONRPC: jsonrpcVersion,
+
 	}
 	rpcResponse, err := client.doCall(request)
 	if err != nil {
@@ -422,7 +423,7 @@ func (client *rpcClient) newRequest(req interface{}) (*http.Request, error) {
 	request.Header.Set("Content-Type", "application/json-rpc")
 	request.Header.Set("Accept", "application/json-rpc")
 	if client.token != "" {
-		request.Header.Set("X-Token", client.token)
+		request.Header.Add("X-Token", client.token)
 	}
 
 	// set default headers first, so that even content type and accept can be overwritten
