@@ -1,5 +1,5 @@
-// Package jsonrpc provides a JSON-RPC 2.0 client that sends JSON-RPC requests and receives JSON-RPC responses using HTTP.
-package jsonrpc
+// Package kerio provides a JSON-RPC 2.0 client that sends JSON-RPC requests and receives JSON-RPC responses using HTTP.
+package kerio
 
 import (
 	"bytes"
@@ -227,6 +227,7 @@ func (e *HTTPError) Error() string {
 type rpcClient struct {
 	endpoint      string
 	httpClient    *http.Client
+	token         string
 	customHeaders map[string]string
 }
 
@@ -282,7 +283,7 @@ type RPCRequests []*RPCRequest
 // NewClient returns a new RPCClient instance with default configuration.
 //
 // endpoint: JSON-RPC service URL to which JSON-RPC requests are sent.
-func NewClient(endpoint string) RPCClient {
+func NewClient(endpoint, login, password string) RPCClient {
 	return NewClientWithOpts(endpoint, nil)
 }
 
@@ -294,6 +295,7 @@ func NewClient(endpoint string) RPCClient {
 func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 	rpcClient := &rpcClient{
 		endpoint:      endpoint,
+		token:         ""
 		httpClient:    &http.Client{},
 		customHeaders: make(map[string]string),
 	}
@@ -377,8 +379,8 @@ func (client *rpcClient) newRequest(req interface{}) (*http.Request, error) {
 		return nil, err
 	}
 
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Accept", "application/json")
+	request.Header.Set("Content-Type", "application/json-rpc")
+	request.Header.Set("Accept", "application/json-rpc")
 
 	// set default headers first, so that even content type and accept can be overwritten
 	for k, v := range client.customHeaders {
