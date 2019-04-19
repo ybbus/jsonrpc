@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"reflect"
 	"strconv"
 )
@@ -154,6 +155,7 @@ type RPCRequest struct {
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params,omitempty"`
 	ID      int         `json:"id"`
+	TOKEN   string      `json:"token"`
 	JSONRPC string      `json:"jsonrpc"`
 }
 
@@ -240,7 +242,12 @@ type RPCClientOpts struct {
 	HTTPClient    *http.Client
 	CustomHeaders map[string]string
 }
-
+// Application contains a description of the application.
+type Application struct {
+	Name string
+	Vendor string
+	Version string
+}
 // RPCResponses is of type []*RPCResponse.
 // This type is used to provide helper functions on the result list
 type RPCResponses []*RPCResponse
@@ -283,7 +290,7 @@ type RPCRequests []*RPCRequest
 // NewClient returns a new RPCClient instance with default configuration.
 //
 // endpoint: JSON-RPC service URL to which JSON-RPC requests are sent.
-func NewClient(endpoint, login, password string) RPCClient {
+func NewClient(endpoint string) RPCClient {
 	return NewClientWithOpts(endpoint, nil)
 }
 
@@ -293,10 +300,11 @@ func NewClient(endpoint, login, password string) RPCClient {
 //
 // opts: RPCClientOpts provide custom configuration
 func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
+	jar, _ := cookiejar.New(nil)
 	rpcClient := &rpcClient{
 		endpoint:      endpoint,
-		token:         ""
-		httpClient:    &http.Client{},
+		token:         "",
+		httpClient:    &http.Client{Jar:jar},
 		customHeaders: make(map[string]string),
 	}
 
@@ -317,6 +325,33 @@ func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 	return rpcClient
 }
 
+func (client *rpcClient) Login(login, password string, app Application) error {
+	request := &RPCRequest{
+		Method: "Session.login",
+		Params: Params(map[string] interface{}{
+			"jsonrpc":"2.0",
+			"id":1,
+			"method":"Session.login",
+			"params": map[string] interface{}{
+			"userName":login,
+			"password": password,
+			"application":map[string] string {"name":app.Name,"vendor":app.Vendor,"version":app.Version},
+		},}),
+		JSONRPC: jsonrpcVersion,
+	}
+	rpcResponse, err := client.doCall(request)
+	if err != nil {
+		return err
+	}
+	result := make(map[string]string)
+	err = rpcResponse.GetObject(&result)
+	if err != nil {
+		return err
+	}
+	client.token = result["token"]
+	return nil
+}
+
 func (client *rpcClient) Call(method string, params ...interface{}) (*RPCResponse, error) {
 
 	request := &RPCRequest{
@@ -324,7 +359,9 @@ func (client *rpcClient) Call(method string, params ...interface{}) (*RPCRespons
 		Params:  Params(params...),
 		JSONRPC: jsonrpcVersion,
 	}
-
+	if client.token != "" {
+		request.TOKEN = client.token
+	}
 	return client.doCall(request)
 }
 
@@ -354,6 +391,9 @@ func (client *rpcClient) CallBatch(requests RPCRequests) (RPCResponses, error) {
 	for i, req := range requests {
 		req.ID = i
 		req.JSONRPC = jsonrpcVersion
+		if client.token != "" {
+			req.TOKEN = client.token
+		}
 	}
 
 	return client.doBatchCall(requests)
@@ -381,6 +421,9 @@ func (client *rpcClient) newRequest(req interface{}) (*http.Request, error) {
 
 	request.Header.Set("Content-Type", "application/json-rpc")
 	request.Header.Set("Accept", "application/json-rpc")
+	if client.token != "" {
+		request.Header.Set("X-Token", client.token)
+	}
 
 	// set default headers first, so that even content type and accept can be overwritten
 	for k, v := range client.customHeaders {
