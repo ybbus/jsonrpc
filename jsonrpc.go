@@ -490,7 +490,7 @@ func (client *rpcClient) doBatchCall(rpcRequest []*RPCRequest) ([]*RPCResponse, 
 // request := NewRequest("myMethod", "Alex", 35, true)
 //
 // If you know what you are doing you can omit the Params() call but potentially create incorrect rpc requests:
-//request := &RPCRequest{
+// request := &RPCRequest{
 //   Method: "myMethod",
 //   Params: 2, <-- invalid since a single primitive value must be wrapped in an array --> no magic without Params()
 // }
@@ -498,7 +498,7 @@ func (client *rpcClient) doBatchCall(rpcRequest []*RPCRequest) ([]*RPCResponse, 
 // correct:
 // request := &RPCRequest{
 //   Method: "myMethod",
-//   Params: []int{2}, <-- invalid since a single primitive value must be wrapped in an array
+//   Params: []int{2}, <-- valid since a single primitive value must be wrapped in an array
 // }
 func Params(params ...interface{}) interface{} {
 	var finalParams interface{}

@@ -663,7 +663,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 	<-requestChan
 	Expect(err.Error()).NotTo(BeNil())
 
-	// result ok since in arrary
+	// result ok since in array
 	responseBody = `[{"result": null}]`
 	res, err = rpcClient.CallBatch(RPCRequests{
 		NewRequest("something", 1, 2, 3),
