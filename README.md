@@ -17,7 +17,7 @@ Supports:
 ## Installation
 
 ```sh
-go get -u github.com/ybbus/jsonrpc
+go get -u github.com/ybbus/jsonrpc/v2
 ```
 
 ## Getting started
@@ -26,10 +26,14 @@ Then we want to save this person after we changed a property.
 (Error handling is omitted here)
 
 ```go
+package main
+
+import "github.com/ybbus/jsonrpc/v2"
+
 type Person struct {
-    Id   int `json:"id"`
+    ID   int    `json:"id"`
     Name string `json:"name"`
-    Age  int `json:"age"`
+    Age  int    `json:"age"`
 }
 
 func main() {
@@ -41,6 +45,7 @@ func main() {
     person.Age = 33
     rpcClient.Call("updatePerson", person)
 }
+
 ```
 
 ## In detail
