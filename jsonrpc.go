@@ -205,7 +205,7 @@ type RPCError struct {
 
 // Error function is provided to be used as error object.
 func (e *RPCError) Error() string {
-	return strconv.Itoa(e.Code) + ":" + e.Message
+	return strconv.Itoa(e.Code) + ": " + e.Message
 }
 
 // HTTPError represents a error that occurred on HTTP level.
