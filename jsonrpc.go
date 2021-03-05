@@ -190,9 +190,9 @@ type RPCResponse struct {
 
 // RPCError represents a JSON-RPC error object if an RPC error occurred.
 //
-// Code: holds the error code
+// Code: holds the error code.
 //
-// Message: holds a short error message
+// Message: holds a short error message.
 //
 // Data: holds additional error data, may be nil
 //
@@ -241,7 +241,7 @@ type RPCClientOpts struct {
 }
 
 // RPCResponses is of type []*RPCResponse.
-// This type is used to provide helper functions on the result list
+// This type is used to provide helper functions on the result list.
 type RPCResponses []*RPCResponse
 
 // AsMap returns the responses as map with response id as key.
@@ -265,7 +265,7 @@ func (res RPCResponses) GetByID(id int) *RPCResponse {
 	return nil
 }
 
-// HasError returns true if one of the response objects has Error field != nil
+// HasError returns true if one of the response objects has Error field != nil.
 func (res RPCResponses) HasError() bool {
 	for _, res := range res {
 		if res.Error != nil {
@@ -276,7 +276,7 @@ func (res RPCResponses) HasError() bool {
 }
 
 // RPCRequests is of type []*RPCRequest.
-// This type is used to provide helper functions on the request list
+// This type is used to provide helper functions on the request list.
 type RPCRequests []*RPCRequest
 
 // NewClient returns a new RPCClient instance with default configuration.
@@ -290,7 +290,7 @@ func NewClient(endpoint string) RPCClient {
 //
 // endpoint: JSON-RPC service URL to which JSON-RPC requests are sent.
 //
-// opts: RPCClientOpts provide custom configuration
+// opts: RPCClientOpts provide custom configuration.
 func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 	rpcClient := &rpcClient{
 		endpoint:      endpoint,

@@ -322,7 +322,7 @@ An error is returned if:
 - RPCError object is not nil (err can be casted to this object)
 - rpc result could not be parsed into provided object
 
-One of te above examples could look like this:
+One of the above examples could look like this:
 
 ```go
 // json annotations are only required to transform the structure back to json
