@@ -1,4 +1,4 @@
-module github.com/openvmi/jsonrpc
+module github.com/openvmi/jsonrpc/v3
 
 go 1.12
 
