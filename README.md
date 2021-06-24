@@ -17,7 +17,7 @@ Supports:
 ## Installation
 
 ```sh
-go get -u github.com/ybbus/jsonrpc/v2
+go get -u github.com/openvmi/jsonrpc/v3
 ```
 
 ## Getting started
