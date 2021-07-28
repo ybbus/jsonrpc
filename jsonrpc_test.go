@@ -616,6 +616,18 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	Expect(err).NotTo(BeNil())
 }
 
+func TestRpcJsonAllowUnknownFieldsInResponse(t *testing.T) {
+	RegisterTestingT(t)
+	rpcClient := NewClientWithOpts(httpServer.URL, &RPCClientOpts{AllowUnknownFieldsInResponse: true})
+
+	// unknown field should not cause error now
+	responseBody = `{ "result": 1, "unknown_field": 2 }`
+	res, err := rpcClient.Call("something", 1, 2, 3)
+	<-requestChan
+	Expect(err).To(BeNil())
+	Expect(res).NotTo(BeNil())
+}
+
 func TestRpcBatchJsonResponseStruct(t *testing.T) {
 	RegisterTestingT(t)
 	rpcClient := NewClient(httpServer.URL)

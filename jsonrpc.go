@@ -225,9 +225,10 @@ func (e *HTTPError) Error() string {
 }
 
 type rpcClient struct {
-	endpoint      string
-	httpClient    *http.Client
-	customHeaders map[string]string
+	endpoint                     string
+	httpClient                   *http.Client
+	customHeaders                map[string]string
+	allowUnknownFieldsInResponse bool
 }
 
 // RPCClientOpts can be provided to NewClientWithOpts() to change configuration of RPCClient.
@@ -235,9 +236,12 @@ type rpcClient struct {
 // HTTPClient: provide a custom http.Client (e.g. to set a proxy, or tls options)
 //
 // CustomHeaders: provide custom headers, e.g. to set BasicAuth
+//
+// AllowUnknownFieldsInResponse: if set false (default), error will be returned on uknown fields in response
 type RPCClientOpts struct {
-	HTTPClient    *http.Client
-	CustomHeaders map[string]string
+	HTTPClient                   *http.Client
+	CustomHeaders                map[string]string
+	AllowUnknownFieldsInResponse bool
 }
 
 // RPCResponses is of type []*RPCResponse.
@@ -311,6 +315,8 @@ func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 			rpcClient.customHeaders[k] = v
 		}
 	}
+
+	rpcClient.allowUnknownFieldsInResponse = opts.AllowUnknownFieldsInResponse
 
 	return rpcClient
 }
@@ -402,7 +408,9 @@ func (client *rpcClient) doCall(RPCRequest *RPCRequest) (*RPCResponse, error) {
 
 	var rpcResponse *RPCResponse
 	decoder := json.NewDecoder(httpResponse.Body)
-	decoder.DisallowUnknownFields()
+	if !client.allowUnknownFieldsInResponse {
+		decoder.DisallowUnknownFields()
+	}
 	decoder.UseNumber()
 	err = decoder.Decode(&rpcResponse)
 
@@ -446,7 +454,9 @@ func (client *rpcClient) doBatchCall(rpcRequest []*RPCRequest) ([]*RPCResponse, 
 
 	var rpcResponse RPCResponses
 	decoder := json.NewDecoder(httpResponse.Body)
-	decoder.DisallowUnknownFields()
+	if !client.allowUnknownFieldsInResponse {
+		decoder.DisallowUnknownFields()
+	}
 	decoder.UseNumber()
 	err = decoder.Decode(&rpcResponse)
 
