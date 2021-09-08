@@ -3,6 +3,7 @@ package jsonrpc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -51,6 +52,14 @@ type RPCClient interface {
 	//
 	// It is recommended to first consider Call() and CallFor()
 	CallRaw(request *RPCRequest) (*RPCResponse, error)
+
+	// CallCtxRaw is like Call() but without magic in the requests.Params field
+	// and it accepts an extra `context.Context` that is bound to `http.Request`
+	// object. The RPCRequest object is sent exactly as you provide it.
+	// See docs: NewRequest, RPCRequest, Params()
+	//
+	// It is recommended to first consider Call() and CallFor()
+	CallCtxRaw(context context.Context, request *RPCRequest) (*RPCResponse, error)
 
 	// CallFor is a very handy function to send a JSON-RPC request to the server endpoint
 	// and directly specify an object to store the response.
@@ -323,12 +332,17 @@ func (client *rpcClient) Call(method string, params ...interface{}) (*RPCRespons
 		JSONRPC: jsonrpcVersion,
 	}
 
-	return client.doCall(request)
+	return client.doCall(context.Background(), request)
 }
 
 func (client *rpcClient) CallRaw(request *RPCRequest) (*RPCResponse, error) {
 
-	return client.doCall(request)
+	return client.doCall(context.Background(), request)
+}
+
+func (client *rpcClient) CallCtxRaw(ctx context.Context, request *RPCRequest) (*RPCResponse, error) {
+
+	return client.doCall(ctx, request)
 }
 
 func (client *rpcClient) CallFor(out interface{}, method string, params ...interface{}) error {
@@ -365,14 +379,14 @@ func (client *rpcClient) CallBatchRaw(requests RPCRequests) (RPCResponses, error
 	return client.doBatchCall(requests)
 }
 
-func (client *rpcClient) newRequest(req interface{}) (*http.Request, error) {
+func (client *rpcClient) newRequest(ctx context.Context, req interface{}) (*http.Request, error) {
 
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	request, err := http.NewRequest("POST", client.endpoint, bytes.NewReader(body))
+	request, err := http.NewRequestWithContext(ctx, "POST", client.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -388,9 +402,9 @@ func (client *rpcClient) newRequest(req interface{}) (*http.Request, error) {
 	return request, nil
 }
 
-func (client *rpcClient) doCall(RPCRequest *RPCRequest) (*RPCResponse, error) {
+func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*RPCResponse, error) {
 
-	httpRequest, err := client.newRequest(RPCRequest)
+	httpRequest, err := client.newRequest(ctx, RPCRequest)
 	if err != nil {
 		return nil, fmt.Errorf("rpc call %v() on %v: %v", RPCRequest.Method, client.endpoint, err.Error())
 	}
@@ -434,7 +448,7 @@ func (client *rpcClient) doCall(RPCRequest *RPCRequest) (*RPCResponse, error) {
 }
 
 func (client *rpcClient) doBatchCall(rpcRequest []*RPCRequest) ([]*RPCResponse, error) {
-	httpRequest, err := client.newRequest(rpcRequest)
+	httpRequest, err := client.newRequest(context.Background(), rpcRequest)
 	if err != nil {
 		return nil, fmt.Errorf("rpc batch call on %v: %v", client.endpoint, err.Error())
 	}
