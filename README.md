@@ -1,5 +1,5 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/ybbus/jsonrpc)](https://goreportcard.com/report/github.com/ybbus/jsonrpc)
-[![GoDoc](https://godoc.org/github.com/ybbus/jsonrpc?status.svg)](https://godoc.org/github.com/ybbus/jsonrpc)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ybbus/jsonrpc/v3)](https://goreportcard.com/report/github.com/ybbus/jsonrpc/v3)
+[![GoDoc](https://godoc.org/github.com/ybbus/jsonrpc/v3?status.svg)](https://godoc.org/github.com/ybbus/jsonrpc/v3)
 [![GitHub license](https://img.shields.io/github/license/mashape/apistatus.svg)]()
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)  
 
@@ -322,7 +322,7 @@ An error is returned if:
 - RPCError object is not nil (err can be casted to this object)
 - rpc result could not be parsed into provided object
 
-One of te above examples could look like this:
+One of the above examples could look like this:
 
 ```go
 // json annotations are only required to transform the structure back to json
