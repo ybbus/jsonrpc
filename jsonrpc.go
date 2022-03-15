@@ -441,6 +441,20 @@ func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*R
 		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. rpc response missing", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode)
 	}
 
+	// if we have a response body, but also a http error situation, return both
+	if httpResponse.StatusCode >= 400 {
+		if rpcResponse.Error != nil {
+			return rpcResponse, &HTTPError{
+				Code: httpResponse.StatusCode,
+				err:  fmt.Errorf("rpc call %v() on %v status code: %v. rpc response error: %v", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, rpcResponse.Error),
+			}
+		}
+		return rpcResponse, &HTTPError{
+			Code: httpResponse.StatusCode,
+			err:  fmt.Errorf("rpc call %v() on %v status code: %v. no rpc error available", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode),
+		}
+	}
+
 	return rpcResponse, nil
 }
 
@@ -455,13 +469,13 @@ func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCReque
 	}
 	defer httpResponse.Body.Close()
 
-	var rpcResponse RPCResponses
+	var rpcResponses RPCResponses
 	decoder := json.NewDecoder(httpResponse.Body)
 	if !client.allowUnknownFields {
 		decoder.DisallowUnknownFields()
 	}
 	decoder.UseNumber()
-	err = decoder.Decode(&rpcResponse)
+	err = decoder.Decode(&rpcResponses)
 
 	// parsing error
 	if err != nil {
@@ -476,7 +490,7 @@ func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCReque
 	}
 
 	// response body empty
-	if rpcResponse == nil || len(rpcResponse) == 0 {
+	if rpcResponses == nil || len(rpcResponses) == 0 {
 		// if we have some http error, return it
 		if httpResponse.StatusCode >= 400 {
 			return nil, &HTTPError{
@@ -487,7 +501,15 @@ func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCReque
 		return nil, fmt.Errorf("rpc batch call on %v status code: %v. rpc response missing", httpRequest.URL.String(), httpResponse.StatusCode)
 	}
 
-	return rpcResponse, nil
+	// if we have a response body, but also a http error, return both
+	if httpResponse.StatusCode >= 400 {
+		return rpcResponses, &HTTPError{
+			Code: httpResponse.StatusCode,
+			err:  fmt.Errorf("rpc batch call on %v status code: %v. check rpc responses for potential rpc error", httpRequest.URL.String(), httpResponse.StatusCode),
+		}
+	}
+
+	return rpcResponses, nil
 }
 
 // Params is a helper function that uses the same parameter syntax as Call().
