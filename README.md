@@ -17,8 +17,10 @@ Supports:
 ## Installation
 
 ```sh
-go get -u github.com/ybbus/jsonrpc/v2
+go get -u github.com/ybbus/jsonrpc/v3
 ```
+
+(You can find v2 and v1 in a separate branch.)
 
 ## Getting started
 Let's say we want to retrieve a person struct with a specific id using rpc-json over http.
@@ -28,22 +30,25 @@ Then we want to save this person after we changed a property.
 ```go
 package main
 
-import "github.com/ybbus/jsonrpc/v2"
+import (
+	"context"
+	"github.com/ybbus/jsonrpc/v3"
+)
 
 type Person struct {
-    ID   int    `json:"id"`
-    Name string `json:"name"`
-    Age  int    `json:"age"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	Age  int    `json:"age"`
 }
 
 func main() {
-    rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
+	rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
 
-    var person *Person
-    rpcClient.CallFor(&person, "getPersonById", 4711)
+	var person *Person
+	rpcClient.CallFor(context.Background(), &person, "getPersonById", 4711)
 
-    person.Age = 33
-    rpcClient.Call("updatePerson", person)
+	person.Age = 33
+	rpcClient.Call(context.Background(), "updatePerson", person)
 }
 
 ```
@@ -60,7 +65,7 @@ This calls generate and send a valid rpc-json object. (see: http://www.jsonrpc.o
 ```go
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
-    rpcClient.Call("getDate")
+    rpcClient.Call(ctx, "getDate")
     // generates body: {"method":"getDate","id":0,"jsonrpc":"2.0"}
 }
 ```
@@ -70,7 +75,7 @@ Call a function with parameter:
 ```go
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
-    rpcClient.Call("addNumbers", 1, 2)
+    rpcClient.Call(ctx, "addNumbers", 1, 2)
     // generates body: {"method":"addNumbers","params":[1,2],"id":0,"jsonrpc":"2.0"}
 }
 ```
@@ -80,7 +85,7 @@ Call a function with arbitrary parameters:
 ```go
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
-    rpcClient.Call("createPerson", "Alex", 33, "Germany")
+    rpcClient.Call(ctx, "createPerson", "Alex", 33, "Germany")
     // generates body: {"method":"createPerson","params":["Alex",33,"Germany"],"id":0,"jsonrpc":"2.0"}
 }
 ```
@@ -95,7 +100,7 @@ type Person struct {
 }
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
-    rpcClient.Call("createPerson", &Person{"Alex", 33, "Germany"})
+    rpcClient.Call(ctx, "createPerson", &Person{"Alex", 33, "Germany"})
     // generates body: {"jsonrpc":"2.0","method":"createPerson","params":{"name":"Alex","age":33,"country":"Germany"},"id":0}
 }
 ```
@@ -110,7 +115,7 @@ type Person struct {
 }
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
-    rpcClient.Call("createPersonsWithRole", &Person{"Alex", 33, "Germany"}, &Person{"Barney", 38, "Germany"}, []string{"Admin", "User"})
+    rpcClient.Call(ctx, "createPersonsWithRole", &Person{"Alex", 33, "Germany"}, &Person{"Barney", 38, "Germany"}, []string{"Admin", "User"})
     // generates body: {"jsonrpc":"2.0","method":"createPersonsWithRole","params":[{"name":"Alex","age":33,"country":"Germany"},{"name":"Barney","age":38,"country":"Germany"},["Admin","User"]],"id":0}
 }
 ```
@@ -118,61 +123,61 @@ func main() {
 Some examples and resulting JSON-RPC objects:
 
 ```go
-rpcClient.Call("missingParam")
+rpcClient.Call(ctx, "missingParam")
 {"method":"missingParam"}
 
-rpcClient.Call("nullParam", nil)
+rpcClient.Call(ctx, "nullParam", nil)
 {"method":"nullParam","params":[null]}
 
-rpcClient.Call("boolParam", true)
+rpcClient.Call(ctx, "boolParam", true)
 {"method":"boolParam","params":[true]}
 
-rpcClient.Call("boolParams", true, false, true)
+rpcClient.Call(ctx, "boolParams", true, false, true)
 {"method":"boolParams","params":[true,false,true]}
 
-rpcClient.Call("stringParam", "Alex")
+rpcClient.Call(ctx, "stringParam", "Alex")
 {"method":"stringParam","params":["Alex"]}
 
-rpcClient.Call("stringParams", "JSON", "RPC")
+rpcClient.Call(ctx, "stringParams", "JSON", "RPC")
 {"method":"stringParams","params":["JSON","RPC"]}
 
-rpcClient.Call("numberParam", 123)
+rpcClient.Call(ctx, "numberParam", 123)
 {"method":"numberParam","params":[123]}
 
-rpcClient.Call("numberParams", 123, 321)
+rpcClient.Call(ctx, "numberParams", 123, 321)
 {"method":"numberParams","params":[123,321]}
 
-rpcClient.Call("floatParam", 1.23)
+rpcClient.Call(ctx, "floatParam", 1.23)
 {"method":"floatParam","params":[1.23]}
 
-rpcClient.Call("floatParams", 1.23, 3.21)
+rpcClient.Call(ctx, "floatParams", 1.23, 3.21)
 {"method":"floatParams","params":[1.23,3.21]}
 
-rpcClient.Call("manyParams", "Alex", 35, true, nil, 2.34)
+rpcClient.Call(ctx, "manyParams", "Alex", 35, true, nil, 2.34)
 {"method":"manyParams","params":["Alex",35,true,null,2.34]}
 
-rpcClient.Call("singlePointerToStruct", &person)
+rpcClient.Call(ctx, "singlePointerToStruct", &person)
 {"method":"singlePointerToStruct","params":{"name":"Alex","age":35,"country":"Germany"}}
 
-rpcClient.Call("multipleStructs", &person, &drink)
+rpcClient.Call(ctx, "multipleStructs", &person, &drink)
 {"method":"multipleStructs","params":[{"name":"Alex","age":35,"country":"Germany"},{"name":"Cuba Libre","ingredients":["rum","cola"]}]}
 
-rpcClient.Call("singleStructInArray", []*Person{&person})
+rpcClient.Call(ctx, "singleStructInArray", []*Person{&person})
 {"method":"singleStructInArray","params":[{"name":"Alex","age":35,"country":"Germany"}]}
 
-rpcClient.Call("namedParameters", map[string]interface{}{
+rpcClient.Call(ctx, "namedParameters", map[string]interface{}{
 	"name": "Alex",
 	"age":  35,
 })
 {"method":"namedParameters","params":{"age":35,"name":"Alex"}}
 
-rpcClient.Call("anonymousStruct", struct {
+rpcClient.Call(ctx, "anonymousStruct", struct {
 	Name string `json:"name"`
 	Age  int    `json:"age"`
 }{"Alex", 33})
 {"method":"anonymousStructWithTags","params":{"name":"Alex","age":33}}
 
-rpcClient.Call("structWithNullField", struct {
+rpcClient.Call(ctx, "structWithNullField", struct {
 	Name    string  `json:"name"`
 	Address *string `json:"address"`
 }{"Alex", nil})
@@ -188,7 +193,7 @@ Also keep in mind that the json-rpc result field can be nil even on success.
 ```go
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
-    response, err := rpcClient.Call("addNumbers", 1, 2)
+    response, err := rpcClient.Call(ctx, "addNumbers", 1, 2)
     if err != nil {
       // error handling goes here e.g. network / http error
     }
@@ -199,7 +204,7 @@ If an http error occurred, maybe you are interested in the error code (403 etc.)
 ```go
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
-    response, err := rpcClient.Call("addNumbers", 1, 2)
+    response, err := rpcClient.Call(ctx, "addNumbers", 1, 2)
 
     switch e := err.(type) {
       case nil: // if error is nil, do nothing
@@ -221,7 +226,7 @@ The next thing you have to check is if an rpc-json protocol error occurred. This
 ```go
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
-    response, err := rpcClient.Call("addNumbers", 1, 2)
+    response, err := rpcClient.Call(ctx, "addNumbers", 1, 2)
     if err != nil {
         //error handling goes here
     }
@@ -242,7 +247,7 @@ Again: check for err != nil here to be sure the expected type was provided in th
 ```go
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
-    response, _ := rpcClient.Call("addNumbers", 1, 2)
+    response, _ := rpcClient.Call(ctx, "addNumbers", 1, 2)
 
     result, err := response.GetInt()
     if err != nil {
@@ -269,7 +274,7 @@ type Person struct {
 
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
-    response, _ := rpcClient.Call("getPersonById", 123)
+    response, _ := rpcClient.Call(ctx, "getPersonById", 123)
 
     var person *Person
     err := response.GetObject(&person) // expects a rpc-object result value like: {"id": 123, "name": "alex", "age": 33}
@@ -299,7 +304,7 @@ Retrieving arrays:
 ```go
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
-    response, _ := rpcClient.Call("getRandomNumbers", 10)
+    response, _ := rpcClient.Call(ctx, "getRandomNumbers", 10)
 
     rndNumbers := []int{}
     err := response.GetObject(&rndNumbers) // expects a rpc-object result value like: [10, 188, 14, 3]
@@ -336,7 +341,7 @@ func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
 
     var person *Person
-    err := rpcClient.CallFor(&person, "getPersonById", 123)
+    err := rpcClient.CallFor(ctx, &person, "getPersonById", 123)
 
     if err != nil || person == nil {
       // handle error
@@ -350,7 +355,7 @@ Most of the time it is ok to check if a struct field is 0, empty string "" etc. 
 But if you want to be sure that a JSON-RPC response field was missing or not, you should use pointers to the fields.
 This is just a single example since all this Unmarshaling is standard go json functionality, exactly as if you would call json.Unmarshal(rpcResponse.ResultAsByteArray, &objectToStoreResult)
 
-```
+```go
 type Person struct {
     Id   *int    `json:"id"`
     Name *string `json:"name"`
@@ -361,7 +366,7 @@ func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
 
     var person *Person
-    err := rpcClient.CallFor(&person, "getPersonById", 123)
+    err := rpcClient.CallFor(ctx, &person, "getPersonById", 123)
 
     if err != nil || person == nil {
       // handle error
@@ -377,11 +382,11 @@ func main() {
 
 You can send multiple RPC-Requests in one single HTTP request using RPC Batch Requests.
 
-```
+```go
 func main() {
     rpcClient := jsonrpc.NewClient("http://my-rpc-service:8080/rpc")
 
-    response, _ := rpcClient.CallBatch(RPCRequests{
+    response, _ := rpcClient.CallBatch(ctx, RPCRequests{
       NewRequest("myMethod1", 1, 2, 3),
       NewRequest("anotherMethod", "Alex", 35, true),
       NewRequest("myMethod2", &Person{
@@ -398,7 +403,7 @@ Keep the following in mind:
 - when you want to set the id yourself use, CallRaw()
 
 There are some helper methods for batch request results:
-```
+```go
 func main() {
     // [...]
 
@@ -431,7 +436,7 @@ func main() {
    			"Authorization": "Basic " + base64.StdEncoding.EncodeToString([]byte("myUser"+":"+"mySecret")),
    		},
    	})
-    response, _ := rpcClient.Call("addNumbers", 1, 2) // send with Authorization-Header
+    response, _ := rpcClient.Call(ctx, "addNumbers", 1, 2) // send with Authorization-Header
 }
 ```
 
@@ -475,4 +480,19 @@ func main() {
 
 	// requests now use proxy
 }
+```
+
+### Allow unknown fields in json-rpc response object
+
+By default, the client will return an error, if the response object contains fields, that are not defined in the response struct.
+You may change this behavior by setting the RPCClientOpts.AllowUnknownFields to true:
+
+```go
+func main() {
+	rpcClient := jsonrpc.NewClientWithOpts("http://my-rpc-service:8080/rpc", &jsonrpc.RPCClientOpts{
+        AllowUnknownFields: true,
+	})
+
+	// unknown fields are now allowed in the response
+}	
 ```
