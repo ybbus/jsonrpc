@@ -669,6 +669,15 @@ func TestRpcClientOptions(t *testing.T) {
 		check.Equal("custom-value", reqObject.request.Header.Get("X-Custom-Header"))
 		check.Equal("custom-value2", reqObject.request.Header.Get("X-Custom-Header2"))
 	})
+
+	t.Run("default rpcrequest id should be customized", func(t *testing.T) {
+		rpcClient := NewClientWithOpts(httpServer.URL, &RPCClientOpts{
+			DefaultRequestID: 123,
+		})
+
+		rpcClient.Call(context.Background(), "myMethod", 1, 2, 3)
+		check.Equal(`{"method":"myMethod","params":[1,2,3],"id":123,"jsonrpc":"2.0"}`, (<-requestChan).body)
+	})
 }
 
 func TestRpcBatchJsonResponseStruct(t *testing.T) {
