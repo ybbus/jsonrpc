@@ -121,7 +121,7 @@ type RPCClient interface {
 //
 // Params: can be nil. if not must be an json array or object
 //
-// ID: may always set to 1 for single requests. Should be unique for every request in one batch request.
+// ID: may always be set to 0 (default can be changed) for single requests. Should be unique for every request in one batch request.
 //
 // JSONRPC: must always be set to "2.0" for JSON-RPC version 2.0
 //
@@ -160,9 +160,25 @@ type RPCRequest struct {
 
 // NewRequest returns a new RPCRequest that can be created using the same convenient parameter syntax as Call()
 //
+// Default RPCRequest id is 0. If you want to use an id other than 0, use NewRequestWithID() or set the ID field of the returned RPCRequest manually.
+//
 // e.g. NewRequest("myMethod", "Alex", 35, true)
 func NewRequest(method string, params ...interface{}) *RPCRequest {
 	request := &RPCRequest{
+		Method:  method,
+		Params:  Params(params...),
+		JSONRPC: jsonrpcVersion,
+	}
+
+	return request
+}
+
+// NewRequestWithID returns a new RPCRequest that can be created using the same convenient parameter syntax as Call()
+//
+// e.g. NewRequestWithID(123, "myMethod", "Alex", 35, true)
+func NewRequestWithID(id int, method string, params ...interface{}) *RPCRequest {
+	request := &RPCRequest{
+		ID:      id,
 		Method:  method,
 		Params:  Params(params...),
 		JSONRPC: jsonrpcVersion,
@@ -230,6 +246,7 @@ type rpcClient struct {
 	httpClient         *http.Client
 	customHeaders      map[string]string
 	allowUnknownFields bool
+	defaultRequestID   int
 }
 
 // RPCClientOpts can be provided to NewClientWithOpts() to change configuration of RPCClient.
@@ -243,6 +260,7 @@ type RPCClientOpts struct {
 	HTTPClient         *http.Client
 	CustomHeaders      map[string]string
 	AllowUnknownFields bool
+	DefaultRequestID   int
 }
 
 // RPCResponses is of type []*RPCResponse.
@@ -321,12 +339,15 @@ func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 		rpcClient.allowUnknownFields = true
 	}
 
+	rpcClient.defaultRequestID = opts.DefaultRequestID
+
 	return rpcClient
 }
 
 func (client *rpcClient) Call(ctx context.Context, method string, params ...interface{}) (*RPCResponse, error) {
 
 	request := &RPCRequest{
+		ID:      client.defaultRequestID,
 		Method:  method,
 		Params:  Params(params...),
 		JSONRPC: jsonrpcVersion,
