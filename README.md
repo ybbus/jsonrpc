@@ -496,3 +496,20 @@ func main() {
 	// unknown fields are now allowed in the response
 }	
 ```
+
+### Change default RPCRequestID
+
+By default, the client will set the id of an RPCRequest to 0.
+This can be changed by setting the RPCClientOpts.DefaultRPCRequestID to a custom value:
+
+```go
+func main() {
+    rpcClient := jsonrpc.NewClientWithOpts("http://my-rpc-service:8080/rpc", &jsonrpc.RPCClientOpts{
+        DefaultRPCRequestID: 1,
+    })
+
+    // requests now have default id 1
+}	
+```
+
+You may also use NewRequestWithID() to set a custom id when creating a raw request.
