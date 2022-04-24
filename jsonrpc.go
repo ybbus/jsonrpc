@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 )
@@ -316,9 +317,17 @@ func NewClient(endpoint string) RPCClient {
 //
 // opts: RPCClientOpts is used to provide custom configuration.
 func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
+	var logSafeUrl string
+	parsedUrl, err := url.Parse(endpoint)
+	if err == nil {
+		logSafeUrl = parsedUrl.Redacted()
+	} else {
+		logSafeUrl = endpoint
+	}
+
 	rpcClient := &rpcClient{
 		endpoint:        endpoint,
-		logSafeEndpoint: stripPassword(endpoint),
+		logSafeEndpoint: logSafeUrl,
 		httpClient:      &http.Client{},
 		customHeaders:   make(map[string]string),
 	}
