@@ -8,6 +8,6 @@ import (
 
 func TestPasswordStripped(t *testing.T) {
 	url := "https://user:password@my.api.com/endpoint"
-	stipped := stripPassword(url)
-	assert.Equal(t, "https://user:***@my.api.com/endpoint", stipped)
+	stripped := stripPassword(url)
+	assert.Equal(t, "https://user:***@my.api.com/endpoint", stripped)
 }
