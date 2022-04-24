@@ -243,6 +243,7 @@ func (e *HTTPError) Error() string {
 
 type rpcClient struct {
 	endpoint           string
+	logSafeEndpoint    string
 	httpClient         *http.Client
 	customHeaders      map[string]string
 	allowUnknownFields bool
@@ -316,9 +317,10 @@ func NewClient(endpoint string) RPCClient {
 // opts: RPCClientOpts is used to provide custom configuration.
 func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 	rpcClient := &rpcClient{
-		endpoint:      endpoint,
-		httpClient:    &http.Client{},
-		customHeaders: make(map[string]string),
+		endpoint:        endpoint,
+		logSafeEndpoint: stripPassword(endpoint),
+		httpClient:      &http.Client{},
+		customHeaders:   make(map[string]string),
 	}
 
 	if opts == nil {
@@ -422,11 +424,11 @@ func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*R
 
 	httpRequest, err := client.newRequest(ctx, RPCRequest)
 	if err != nil {
-		return nil, fmt.Errorf("rpc call %v() on %v: %v", RPCRequest.Method, client.endpoint, err.Error())
+		return nil, fmt.Errorf("rpc call %v() on %v: %v", RPCRequest.Method, client.logSafeEndpoint, err.Error())
 	}
 	httpResponse, err := client.httpClient.Do(httpRequest)
 	if err != nil {
-		return nil, fmt.Errorf("rpc call %v() on %v: %v", RPCRequest.Method, httpRequest.URL.String(), err.Error())
+		return nil, fmt.Errorf("rpc call %v() on %v: %v", RPCRequest.Method, client.logSafeEndpoint, err.Error())
 	}
 	defer httpResponse.Body.Close()
 
@@ -444,10 +446,10 @@ func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*R
 		if httpResponse.StatusCode >= 400 {
 			return nil, &HTTPError{
 				Code: httpResponse.StatusCode,
-				err:  fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %v", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, err.Error()),
+				err:  fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %v", RPCRequest.Method, client.logSafeEndpoint, httpResponse.StatusCode, err.Error()),
 			}
 		}
-		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %v", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, err.Error())
+		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %v", RPCRequest.Method, client.logSafeEndpoint, httpResponse.StatusCode, err.Error())
 	}
 
 	// response body empty
@@ -456,10 +458,10 @@ func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*R
 		if httpResponse.StatusCode >= 400 {
 			return nil, &HTTPError{
 				Code: httpResponse.StatusCode,
-				err:  fmt.Errorf("rpc call %v() on %v status code: %v. rpc response missing", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode),
+				err:  fmt.Errorf("rpc call %v() on %v status code: %v. rpc response missing", RPCRequest.Method, client.logSafeEndpoint, httpResponse.StatusCode),
 			}
 		}
-		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. rpc response missing", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode)
+		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. rpc response missing", RPCRequest.Method, client.logSafeEndpoint, httpResponse.StatusCode)
 	}
 
 	// if we have a response body, but also a http error situation, return both
@@ -467,12 +469,12 @@ func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*R
 		if rpcResponse.Error != nil {
 			return rpcResponse, &HTTPError{
 				Code: httpResponse.StatusCode,
-				err:  fmt.Errorf("rpc call %v() on %v status code: %v. rpc response error: %v", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, rpcResponse.Error),
+				err:  fmt.Errorf("rpc call %v() on %v status code: %v. rpc response error: %v", RPCRequest.Method, client.logSafeEndpoint, httpResponse.StatusCode, rpcResponse.Error),
 			}
 		}
 		return rpcResponse, &HTTPError{
 			Code: httpResponse.StatusCode,
-			err:  fmt.Errorf("rpc call %v() on %v status code: %v. no rpc error available", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode),
+			err:  fmt.Errorf("rpc call %v() on %v status code: %v. no rpc error available", RPCRequest.Method, client.logSafeEndpoint, httpResponse.StatusCode),
 		}
 	}
 
@@ -482,11 +484,11 @@ func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*R
 func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCRequest) ([]*RPCResponse, error) {
 	httpRequest, err := client.newRequest(ctx, rpcRequest)
 	if err != nil {
-		return nil, fmt.Errorf("rpc batch call on %v: %v", client.endpoint, err.Error())
+		return nil, fmt.Errorf("rpc batch call on %v: %v", client.logSafeEndpoint, err.Error())
 	}
 	httpResponse, err := client.httpClient.Do(httpRequest)
 	if err != nil {
-		return nil, fmt.Errorf("rpc batch call on %v: %v", httpRequest.URL.String(), err.Error())
+		return nil, fmt.Errorf("rpc batch call on %v: %v", client.logSafeEndpoint, err.Error())
 	}
 	defer httpResponse.Body.Close()
 
@@ -504,10 +506,10 @@ func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCReque
 		if httpResponse.StatusCode >= 400 {
 			return nil, &HTTPError{
 				Code: httpResponse.StatusCode,
-				err:  fmt.Errorf("rpc batch call on %v status code: %v. could not decode body to rpc response: %v", httpRequest.URL.String(), httpResponse.StatusCode, err.Error()),
+				err:  fmt.Errorf("rpc batch call on %v status code: %v. could not decode body to rpc response: %v", client.logSafeEndpoint, httpResponse.StatusCode, err.Error()),
 			}
 		}
-		return nil, fmt.Errorf("rpc batch call on %v status code: %v. could not decode body to rpc response: %v", httpRequest.URL.String(), httpResponse.StatusCode, err.Error())
+		return nil, fmt.Errorf("rpc batch call on %v status code: %v. could not decode body to rpc response: %v", client.logSafeEndpoint, httpResponse.StatusCode, err.Error())
 	}
 
 	// response body empty
@@ -516,17 +518,17 @@ func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCReque
 		if httpResponse.StatusCode >= 400 {
 			return nil, &HTTPError{
 				Code: httpResponse.StatusCode,
-				err:  fmt.Errorf("rpc batch call on %v status code: %v. rpc response missing", httpRequest.URL.String(), httpResponse.StatusCode),
+				err:  fmt.Errorf("rpc batch call on %v status code: %v. rpc response missing", client.logSafeEndpoint, httpResponse.StatusCode),
 			}
 		}
-		return nil, fmt.Errorf("rpc batch call on %v status code: %v. rpc response missing", httpRequest.URL.String(), httpResponse.StatusCode)
+		return nil, fmt.Errorf("rpc batch call on %v status code: %v. rpc response missing", client.logSafeEndpoint, httpResponse.StatusCode)
 	}
 
 	// if we have a response body, but also a http error, return both
 	if httpResponse.StatusCode >= 400 {
 		return rpcResponses, &HTTPError{
 			Code: httpResponse.StatusCode,
-			err:  fmt.Errorf("rpc batch call on %v status code: %v. check rpc responses for potential rpc error", httpRequest.URL.String(), httpResponse.StatusCode),
+			err:  fmt.Errorf("rpc batch call on %v status code: %v. check rpc responses for potential rpc error", client.logSafeEndpoint, httpResponse.StatusCode),
 		}
 	}
 
