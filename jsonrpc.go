@@ -411,8 +411,12 @@ func (client *rpcClient) newRequest(ctx context.Context, req interface{}) (*http
 	request.Header.Set("Accept", "application/json")
 
 	// set default headers first, so that even content type and accept can be overwritten
-	for k, v := range client.customHeaders {
-		request.Header.Set(k, v)
+	for k, v := range client.customHeaders {		
+		if k == "Host" {
+			request.Host = v
+		} else {
+			request.Header.Set(k, v)
+		}
 	}
 
 	return request, nil
