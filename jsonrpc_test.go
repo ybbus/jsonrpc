@@ -670,6 +670,25 @@ func TestRpcClientOptions(t *testing.T) {
 		check.Equal("custom-value2", reqObject.request.Header.Get("X-Custom-Header2"))
 	})
 
+	t.Run("host header should be added to request", func(t *testing.T) {
+		rpcClient := NewClientWithOpts(httpServer.URL, &RPCClientOpts{
+			CustomHeaders: map[string]string{
+				"X-Custom-Header1": "custom-value1",
+				"Host":             "my-host.com",
+				"X-Custom-Header2": "custom-value2",
+			},
+		})
+
+		responseBody = `{"result": 1}`
+		res, err := rpcClient.Call(context.Background(), "something", 1, 2, 3)
+		reqObject := <-requestChan
+		check.Nil(err)
+		check.NotNil(res)
+		check.Equal("custom-value1", reqObject.request.Header.Get("X-Custom-Header1"))
+		check.Equal("my-host.com", reqObject.request.Host)
+		check.Equal("custom-value2", reqObject.request.Header.Get("X-Custom-Header2"))
+	})
+
 	t.Run("default rpcrequest id should be customized", func(t *testing.T) {
 		rpcClient := NewClientWithOpts(httpServer.URL, &RPCClientOpts{
 			DefaultRequestID: 123,

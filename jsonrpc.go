@@ -412,7 +412,12 @@ func (client *rpcClient) newRequest(ctx context.Context, req interface{}) (*http
 
 	// set default headers first, so that even content type and accept can be overwritten
 	for k, v := range client.customHeaders {
-		request.Header.Set(k, v)
+		// check if header is "Host" since this will be set on the request struct itself
+		if k == "Host" {
+			request.Host = v
+		} else {
+			request.Header.Set(k, v)
+		}
 	}
 
 	return request, nil
