@@ -3,6 +3,7 @@ package jsonrpc
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -288,14 +289,14 @@ func TestRpcClient_CallBatch(t *testing.T) {
 		{
 			Method:  "myMethod1",
 			Params:  []int{1},
-			ID:      123,   // will be forced to requests[i].ID == i unless you use CallBatchRaw
-			JSONRPC: "7.0", // will be forced to "2.0"  unless you use CallBatchRaw
+			ID:      uuid.New(), // will be forced to requests[i].ID == i unless you use CallBatchRaw
+			JSONRPC: "7.0",      // will be forced to "2.0"  unless you use CallBatchRaw
 		},
 		{
 			Method:  "myMethod2",
 			Params:  &person,
-			ID:      321,     // will be forced to requests[i].ID == i unless you use CallBatchRaw
-			JSONRPC: "wrong", // will be forced to "2.0" unless you use CallBatchRaw
+			ID:      uuid.New(), // will be forced to requests[i].ID == i unless you use CallBatchRaw
+			JSONRPC: "wrong",    // will be forced to "2.0" unless you use CallBatchRaw
 		},
 	}
 	rpcClient.CallBatch(context.Background(), requests)
@@ -303,25 +304,27 @@ func TestRpcClient_CallBatch(t *testing.T) {
 	check.Equal(`[{"method":"myMethod1","params":[1],"id":0,"jsonrpc":"2.0"},`+
 		`{"method":"myMethod2","params":{"name":"Alex","age":35,"country":"Germany"},"id":1,"jsonrpc":"2.0"}]`, (<-requestChan).body)
 
+	id1 := uuid.New()
+	id2 := uuid.New()
 	// use raw batch
 	requests = []*RPCRequest{
 		{
 			Method:  "myMethod1",
 			Params:  []int{1},
-			ID:      123,
+			ID:      id1,
 			JSONRPC: "7.0",
 		},
 		{
 			Method:  "myMethod2",
 			Params:  &person,
-			ID:      321,
+			ID:      id2,
 			JSONRPC: "wrong",
 		},
 	}
 	rpcClient.CallBatchRaw(context.Background(), requests)
 
-	check.Equal(`[{"method":"myMethod1","params":[1],"id":123,"jsonrpc":"7.0"},`+
-		`{"method":"myMethod2","params":{"name":"Alex","age":35,"country":"Germany"},"id":321,"jsonrpc":"wrong"}]`, (<-requestChan).body)
+	check.Equal(`[{"method":"myMethod1","params":[1],"id":`+id1.String()+`,"jsonrpc":"7.0"},`+
+		`{"method":"myMethod2","params":{"name":"Alex","age":35,"country":"Germany"},"id":`+id2.String()+`,"jsonrpc":"wrong"}]`, (<-requestChan).body)
 }
 
 // test if the result of a rpc request is parsed correctly and if errors are thrown correctly

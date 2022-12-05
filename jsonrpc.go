@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -135,27 +136,41 @@ type RPCClient interface {
 // Params() is a helper function that uses the same parameter syntax as Call().
 //
 // e.g. to manually create an RPCRequest object:
-// request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: Params("Alex", 35, true),
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: Params("Alex", 35, true),
+//	}
 //
 // If you know what you are doing you can omit the Params() call to avoid some reflection but potentially create incorrect rpc requests:
-//request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: 2, <-- invalid since a single primitive value must be wrapped in an array --> no magic without Params()
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: 2, <-- invalid since a single primitive value must be wrapped in an array --> no magic without Params()
+//	}
 //
 // correct:
-// request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: []int{2}, <-- invalid since a single primitive value must be wrapped in an array
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: []int{2}, <-- invalid since a single primitive value must be wrapped in an array
+//	}
 type RPCRequest struct {
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params,omitempty"`
-	ID      int         `json:"id"`
+	ID      uuid.UUID   `json:"id"`
 	JSONRPC string      `json:"jsonrpc"`
+}
+
+func (r *RPCRequest) MarshalJSON() ([]byte, error) {
+	type JsonReq RPCRequest
+	return json.Marshal(&struct {
+		ID string `json:"id"`
+		*JsonReq
+	}{
+		ID:      r.ID.String(),
+		JsonReq: (*JsonReq)(r),
+	})
 }
 
 // NewRequest returns a new RPCRequest that can be created using the same convenient parameter syntax as Call()
@@ -176,7 +191,7 @@ func NewRequest(method string, params ...interface{}) *RPCRequest {
 // NewRequestWithID returns a new RPCRequest that can be created using the same convenient parameter syntax as Call()
 //
 // e.g. NewRequestWithID(123, "myMethod", "Alex", 35, true)
-func NewRequestWithID(id int, method string, params ...interface{}) *RPCRequest {
+func NewRequestWithID(id uuid.UUID, method string, params ...interface{}) *RPCRequest {
 	request := &RPCRequest{
 		ID:      id,
 		Method:  method,
@@ -347,7 +362,7 @@ func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 func (client *rpcClient) Call(ctx context.Context, method string, params ...interface{}) (*RPCResponse, error) {
 
 	request := &RPCRequest{
-		ID:      client.defaultRequestID,
+		ID:      uuid.New(),
 		Method:  method,
 		Params:  Params(params...),
 		JSONRPC: jsonrpcVersion,
@@ -379,8 +394,8 @@ func (client *rpcClient) CallBatch(ctx context.Context, requests RPCRequests) (R
 		return nil, errors.New("empty request list")
 	}
 
-	for i, req := range requests {
-		req.ID = i
+	for _, req := range requests {
+		req.ID = uuid.New()
 		req.JSONRPC = jsonrpcVersion
 	}
 
@@ -542,25 +557,28 @@ func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCReque
 // But you should consider to always use NewRequest() instead.
 //
 // e.g. to manually create an RPCRequest object:
-// request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: Params("Alex", 35, true),
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: Params("Alex", 35, true),
+//	}
 //
 // same with new request:
 // request := NewRequest("myMethod", "Alex", 35, true)
 //
 // If you know what you are doing you can omit the Params() call but potentially create incorrect rpc requests:
-// request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: 2, <-- invalid since a single primitive value must be wrapped in an array --> no magic without Params()
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: 2, <-- invalid since a single primitive value must be wrapped in an array --> no magic without Params()
+//	}
 //
 // correct:
-// request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: []int{2}, <-- valid since a single primitive value must be wrapped in an array
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: []int{2}, <-- valid since a single primitive value must be wrapped in an array
+//	}
 func Params(params ...interface{}) interface{} {
 	var finalParams interface{}
 
