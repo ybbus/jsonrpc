@@ -217,7 +217,27 @@ type RPCResponse struct {
 	JSONRPC string      `json:"jsonrpc"`
 	Result  interface{} `json:"result,omitempty"`
 	Error   *RPCError   `json:"error,omitempty"`
-	ID      int         `json:"id"`
+	ID      string      `json:"id"`
+}
+
+func (r *RPCResponse) UnmarshalJSON(b []byte) error {
+	type CustomResp struct {
+		ID any
+		RPCResponse
+	}
+
+	var cr CustomResp
+
+	if err := json.Unmarshal(b, &cr); err != nil {
+		return err
+	}
+
+	r.ID = cr.ID.(string)
+	r.JSONRPC = cr.JSONRPC
+	r.Result = cr.Result
+	r.Error = cr.Error
+
+	return nil
 }
 
 // RPCError represents a JSON-RPC error object if an RPC error occurred.
@@ -283,8 +303,8 @@ type RPCClientOpts struct {
 type RPCResponses []*RPCResponse
 
 // AsMap returns the responses as map with response id as key.
-func (res RPCResponses) AsMap() map[int]*RPCResponse {
-	resMap := make(map[int]*RPCResponse, 0)
+func (res RPCResponses) AsMap() map[string]*RPCResponse {
+	resMap := make(map[string]*RPCResponse, 0)
 	for _, r := range res {
 		resMap[r.ID] = r
 	}
@@ -293,7 +313,7 @@ func (res RPCResponses) AsMap() map[int]*RPCResponse {
 }
 
 // GetByID returns the response object of the given id, nil if it does not exist.
-func (res RPCResponses) GetByID(id int) *RPCResponse {
+func (res RPCResponses) GetByID(id string) *RPCResponse {
 	for _, r := range res {
 		if r.ID == id {
 			return r
