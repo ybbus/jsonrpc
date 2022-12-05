@@ -222,8 +222,10 @@ type RPCResponse struct {
 
 func (r *RPCResponse) UnmarshalJSON(b []byte) error {
 	type CustomResp struct {
-		ID any
-		RPCResponse
+		ID      any         `json:"id"`
+		JSONRPC string      `json:"jsonrpc"`
+		Result  interface{} `json:"result,omitempty"`
+		Error   *RPCError   `json:"error,omitempty"`
 	}
 
 	var cr CustomResp
