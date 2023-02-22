@@ -1,4 +1,6 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/ybbus/jsonrpc/v3)](https://goreportcard.com/report/github.com/ybbus/jsonrpc/v3)
+[![Go build](https://github.com/ybbus/jsonrpc/actions/workflows/go.yml/badge.svg)](https://github.com/ybbus/jsonrpc)
+[![Codecov](https://codecov.io/github/ybbus/jsonrpc/branch/master/graph/badge.svg?token=ARYOQ8R1DT)](https://codecov.io/github/ybbus/jsonrpc)
 [![GoDoc](https://godoc.org/github.com/ybbus/jsonrpc/v3?status.svg)](https://godoc.org/github.com/ybbus/jsonrpc/v3)
 [![GitHub license](https://img.shields.io/github/license/mashape/apistatus.svg)]()
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)  
