@@ -135,22 +135,25 @@ type RPCClient interface {
 // Params() is a helper function that uses the same parameter syntax as Call().
 //
 // e.g. to manually create an RPCRequest object:
-// request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: Params("Alex", 35, true),
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: Params("Alex", 35, true),
+//	}
 //
 // If you know what you are doing you can omit the Params() call to avoid some reflection but potentially create incorrect rpc requests:
-//request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: 2, <-- invalid since a single primitive value must be wrapped in an array --> no magic without Params()
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: 2, <-- invalid since a single primitive value must be wrapped in an array --> no magic without Params()
+//	}
 //
 // correct:
-// request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: []int{2}, <-- invalid since a single primitive value must be wrapped in an array
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: []int{2}, <-- invalid since a single primitive value must be wrapped in an array
+//	}
 type RPCRequest struct {
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params,omitempty"`
@@ -427,11 +430,11 @@ func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*R
 
 	httpRequest, err := client.newRequest(ctx, RPCRequest)
 	if err != nil {
-		return nil, fmt.Errorf("rpc call %v() on %v: %v", RPCRequest.Method, client.endpoint, err.Error())
+		return nil, fmt.Errorf("rpc call %v() on %v: %w", RPCRequest.Method, client.endpoint, err)
 	}
 	httpResponse, err := client.httpClient.Do(httpRequest)
 	if err != nil {
-		return nil, fmt.Errorf("rpc call %v() on %v: %v", RPCRequest.Method, httpRequest.URL.String(), err.Error())
+		return nil, fmt.Errorf("rpc call %v() on %v: %w", RPCRequest.Method, httpRequest.URL.String(), err)
 	}
 	defer httpResponse.Body.Close()
 
@@ -449,10 +452,10 @@ func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*R
 		if httpResponse.StatusCode >= 400 {
 			return nil, &HTTPError{
 				Code: httpResponse.StatusCode,
-				err:  fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %v", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, err.Error()),
+				err:  fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %w", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, err),
 			}
 		}
-		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %v", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, err.Error())
+		return nil, fmt.Errorf("rpc call %v() on %v status code: %v. could not decode body to rpc response: %w", RPCRequest.Method, httpRequest.URL.String(), httpResponse.StatusCode, err)
 	}
 
 	// response body empty
@@ -487,11 +490,11 @@ func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*R
 func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCRequest) ([]*RPCResponse, error) {
 	httpRequest, err := client.newRequest(ctx, rpcRequest)
 	if err != nil {
-		return nil, fmt.Errorf("rpc batch call on %v: %v", client.endpoint, err.Error())
+		return nil, fmt.Errorf("rpc batch call on %v: %w", client.endpoint, err)
 	}
 	httpResponse, err := client.httpClient.Do(httpRequest)
 	if err != nil {
-		return nil, fmt.Errorf("rpc batch call on %v: %v", httpRequest.URL.String(), err.Error())
+		return nil, fmt.Errorf("rpc batch call on %v: %w", httpRequest.URL.String(), err)
 	}
 	defer httpResponse.Body.Close()
 
@@ -509,10 +512,10 @@ func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCReque
 		if httpResponse.StatusCode >= 400 {
 			return nil, &HTTPError{
 				Code: httpResponse.StatusCode,
-				err:  fmt.Errorf("rpc batch call on %v status code: %v. could not decode body to rpc response: %v", httpRequest.URL.String(), httpResponse.StatusCode, err.Error()),
+				err:  fmt.Errorf("rpc batch call on %v status code: %v. could not decode body to rpc response: %w", httpRequest.URL.String(), httpResponse.StatusCode, err),
 			}
 		}
-		return nil, fmt.Errorf("rpc batch call on %v status code: %v. could not decode body to rpc response: %v", httpRequest.URL.String(), httpResponse.StatusCode, err.Error())
+		return nil, fmt.Errorf("rpc batch call on %v status code: %v. could not decode body to rpc response: %w", httpRequest.URL.String(), httpResponse.StatusCode, err)
 	}
 
 	// response body empty
@@ -542,25 +545,28 @@ func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCReque
 // But you should consider to always use NewRequest() instead.
 //
 // e.g. to manually create an RPCRequest object:
-// request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: Params("Alex", 35, true),
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: Params("Alex", 35, true),
+//	}
 //
 // same with new request:
 // request := NewRequest("myMethod", "Alex", 35, true)
 //
 // If you know what you are doing you can omit the Params() call but potentially create incorrect rpc requests:
-// request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: 2, <-- invalid since a single primitive value must be wrapped in an array --> no magic without Params()
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: 2, <-- invalid since a single primitive value must be wrapped in an array --> no magic without Params()
+//	}
 //
 // correct:
-// request := &RPCRequest{
-//   Method: "myMethod",
-//   Params: []int{2}, <-- valid since a single primitive value must be wrapped in an array
-// }
+//
+//	request := &RPCRequest{
+//	  Method: "myMethod",
+//	  Params: []int{2}, <-- valid since a single primitive value must be wrapped in an array
+//	}
 func Params(params ...interface{}) interface{} {
 	var finalParams interface{}
 
