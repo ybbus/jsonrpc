@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/spf13/cast"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -234,7 +235,7 @@ func (r *RPCResponse) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	r.ID = cr.ID.(string)
+	r.ID = cast.ToString(cr.ID)
 	r.JSONRPC = cr.JSONRPC
 	r.Result = cr.Result
 	r.Error = cr.Error
