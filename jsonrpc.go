@@ -433,10 +433,10 @@ func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*R
 		return nil, fmt.Errorf("rpc call %v() on %v: %w", RPCRequest.Method, client.endpoint, err)
 	}
 	httpResponse, err := client.httpClient.Do(httpRequest)
+	defer httpResponse.Body.Close()
 	if err != nil {
 		return nil, fmt.Errorf("rpc call %v() on %v: %w", RPCRequest.Method, httpRequest.URL.Redacted(), err)
 	}
-	defer httpResponse.Body.Close()
 
 	var rpcResponse *RPCResponse
 	decoder := json.NewDecoder(httpResponse.Body)
@@ -493,10 +493,10 @@ func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCReque
 		return nil, fmt.Errorf("rpc batch call on %v: %w", client.endpoint, err)
 	}
 	httpResponse, err := client.httpClient.Do(httpRequest)
+	defer httpResponse.Body.Close()
 	if err != nil {
 		return nil, fmt.Errorf("rpc batch call on %v: %w", httpRequest.URL.Redacted(), err)
 	}
-	defer httpResponse.Body.Close()
 
 	var rpcResponses RPCResponses
 	decoder := json.NewDecoder(httpResponse.Body)
