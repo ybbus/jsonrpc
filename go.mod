@@ -1,8 +1,8 @@
-module github.com/ybbus/jsonrpc/v3
+module github.com/vovka1200/jsonrpc
 
-go 1.21
+go 1.23.3
 
-require github.com/stretchr/testify v1.8.4
+require github.com/stretchr/testify v1.10.0
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
