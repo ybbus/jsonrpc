@@ -113,6 +113,9 @@ type RPCClient interface {
 	// - the id's must be mapped against the id's you provided
 	// - RPCPersponses is enriched with helper functions e.g.: responses.HasError() returns  true if one of the responses holds an RPCError
 	CallBatchRaw(ctx context.Context, requests RPCRequests) (RPCResponses, error)
+
+	// SetToken sets token string for auth field of the RPCRequest object
+	SetToken(token string)
 }
 
 // RPCRequest represents a JSON-RPC request object.
@@ -159,6 +162,7 @@ type RPCRequest struct {
 	Params  interface{} `json:"params,omitempty"`
 	ID      int         `json:"id"`
 	JSONRPC string      `json:"jsonrpc"`
+	Token   string      `json:"auth,omitempty"`
 }
 
 // NewRequest returns a new RPCRequest that can be created using the same convenient parameter syntax as Call()
@@ -250,6 +254,7 @@ type rpcClient struct {
 	customHeaders      map[string]string
 	allowUnknownFields bool
 	defaultRequestID   int
+	token              string
 }
 
 // RPCClientOpts can be provided to NewClientWithOpts() to change configuration of RPCClient.
@@ -347,6 +352,10 @@ func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 	return rpcClient
 }
 
+func (client *rpcClient) SetToken(token string) {
+	client.token = token
+}
+
 func (client *rpcClient) Call(ctx context.Context, method string, params ...interface{}) (*RPCResponse, error) {
 
 	request := &RPCRequest{
@@ -354,6 +363,7 @@ func (client *rpcClient) Call(ctx context.Context, method string, params ...inte
 		Method:  method,
 		Params:  Params(params...),
 		JSONRPC: jsonrpcVersion,
+		Token:   client.token,
 	}
 
 	return client.doCall(ctx, request)
