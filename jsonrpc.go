@@ -244,9 +244,14 @@ func (e *HTTPError) Error() string {
 	return e.err.Error()
 }
 
+// HTTPClient interface is provided to be used instead of http.Client (e.g. to overload redirect/ retry policy)
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type rpcClient struct {
 	endpoint           string
-	httpClient         *http.Client
+	httpClient         HTTPClient
 	customHeaders      map[string]string
 	allowUnknownFields bool
 	defaultRequestID   int
@@ -260,7 +265,7 @@ type rpcClient struct {
 //
 // AllowUnknownFields: allows the rpc response to contain fields that are not defined in the rpc response specification.
 type RPCClientOpts struct {
-	HTTPClient         *http.Client
+	HTTPClient         HTTPClient
 	CustomHeaders      map[string]string
 	AllowUnknownFields bool
 	DefaultRequestID   int
