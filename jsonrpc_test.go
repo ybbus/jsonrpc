@@ -25,6 +25,7 @@ type RequestData struct {
 var responseBody = ""
 
 var httpStatusCode = http.StatusOK
+
 var httpServer *httptest.Server
 
 // start the test-http server and stop it when tests are finished
@@ -173,6 +174,36 @@ func TestRpcClient_Call(t *testing.T) {
 			},
 		})
 	check.Equal(`{"method":"nestedStruct","params":{"name":"Mars","properties":{"distance":54600000,"color":"red"}},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
+
+	// test nil slice handling for JSON-RPC compliance
+	var nilSlice []int = nil
+	rpcClient.Call(context.Background(), "nilSliceParam", nilSlice)
+	check.Equal(`{"method":"nilSliceParam","params":[],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
+
+	// test nil map handling for JSON-RPC compliance
+	var nilMap map[string]interface{} = nil
+	rpcClient.Call(context.Background(), "nilMapParam", nilMap)
+	check.Equal(`{"method":"nilMapParam","params":{},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
+
+	// test empty slice
+	emptySlice := []int{}
+	rpcClient.Call(context.Background(), "emptySliceParam", emptySlice)
+	check.Equal(`{"method":"emptySliceParam","params":[],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
+
+	// test empty map
+	emptyMap := map[string]interface{}{}
+	rpcClient.Call(context.Background(), "emptyMapParam", emptyMap)
+	check.Equal(`{"method":"emptyMapParam","params":{},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
+
+	// test nil slice of strings
+	var nilStringSlice []string = nil
+	rpcClient.Call(context.Background(), "nilStringSliceParam", nilStringSlice)
+	check.Equal(`{"method":"nilStringSliceParam","params":[],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
+
+	// test nil map with string keys
+	var nilStringMap map[string]string = nil
+	rpcClient.Call(context.Background(), "nilStringMapParam", nilStringMap)
+	check.Equal(`{"method":"nilStringMapParam","params":{},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 }
 
 func TestRpcClient_CallBatch(t *testing.T) {

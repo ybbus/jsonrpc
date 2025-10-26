@@ -596,11 +596,21 @@ func Params(params ...interface{}) interface{} {
 					case reflect.Array:
 						finalParams = params[0]
 					case reflect.Slice:
-						finalParams = params[0]
+						// Handle nil slices by converting them to empty arrays for JSON-RPC compliance
+						if reflect.ValueOf(params[0]).IsNil() {
+							finalParams = []interface{}{}
+						} else {
+							finalParams = params[0]
+						}
 					case reflect.Interface:
 						finalParams = params[0]
 					case reflect.Map:
-						finalParams = params[0]
+						// Handle nil maps by converting them to empty objects for JSON-RPC compliance
+						if reflect.ValueOf(params[0]).IsNil() {
+							finalParams = map[string]interface{}{}
+						} else {
+							finalParams = params[0]
+						}
 					default: // everything else must stay in an array (int, string, etc)
 						finalParams = params
 					}
