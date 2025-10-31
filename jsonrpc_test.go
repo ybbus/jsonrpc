@@ -48,7 +48,7 @@ func TestSimpleRpcCallHeaderCorrect(t *testing.T) {
 	check := assert.New(t)
 
 	rpcClient := NewClient(httpServer.URL)
-	rpcClient.Call(context.Background(), "add", 1, 2)
+	rpcClient.Call(context.Background(), nil, "add", 1, 2)
 
 	req := (<-requestChan).request
 
@@ -74,98 +74,98 @@ func TestRpcClient_Call(t *testing.T) {
 		Ingredients: []string{"rum", "cola"},
 	}
 
-	rpcClient.Call(context.Background(), "missingParam")
+	rpcClient.Call(context.Background(), nil, "missingParam")
 	check.Equal(`{"method":"missingParam","id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "nullParam", nil)
+	rpcClient.Call(context.Background(), nil, "nullParam", nil)
 	check.Equal(`{"method":"nullParam","params":[null],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "nullParams", nil, nil)
+	rpcClient.Call(context.Background(), nil, "nullParams", nil, nil)
 	check.Equal(`{"method":"nullParams","params":[null,null],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "emptyParams", []interface{}{})
+	rpcClient.Call(context.Background(), nil, "emptyParams", []interface{}{})
 	check.Equal(`{"method":"emptyParams","params":[],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "emptyAnyParams", []string{})
+	rpcClient.Call(context.Background(), nil, "emptyAnyParams", []string{})
 	check.Equal(`{"method":"emptyAnyParams","params":[],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "emptyObject", struct{}{})
+	rpcClient.Call(context.Background(), nil, "emptyObject", struct{}{})
 	check.Equal(`{"method":"emptyObject","params":{},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "emptyObjectList", []struct{}{{}, {}})
+	rpcClient.Call(context.Background(), nil, "emptyObjectList", []struct{}{{}, {}})
 	check.Equal(`{"method":"emptyObjectList","params":[{},{}],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "boolParam", true)
+	rpcClient.Call(context.Background(), nil, "boolParam", true)
 	check.Equal(`{"method":"boolParam","params":[true],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "boolParams", true, false, true)
+	rpcClient.Call(context.Background(), nil, "boolParams", true, false, true)
 	check.Equal(`{"method":"boolParams","params":[true,false,true],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "stringParam", "Alex")
+	rpcClient.Call(context.Background(), nil, "stringParam", "Alex")
 	check.Equal(`{"method":"stringParam","params":["Alex"],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "stringParams", "JSON", "RPC")
+	rpcClient.Call(context.Background(), nil, "stringParams", "JSON", "RPC")
 	check.Equal(`{"method":"stringParams","params":["JSON","RPC"],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "numberParam", 123)
+	rpcClient.Call(context.Background(), nil, "numberParam", 123)
 	check.Equal(`{"method":"numberParam","params":[123],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "numberParams", 123, 321)
+	rpcClient.Call(context.Background(), nil, "numberParams", 123, 321)
 	check.Equal(`{"method":"numberParams","params":[123,321],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "floatParam", 1.23)
+	rpcClient.Call(context.Background(), nil, "floatParam", 1.23)
 	check.Equal(`{"method":"floatParam","params":[1.23],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "floatParams", 1.23, 3.21)
+	rpcClient.Call(context.Background(), nil, "floatParams", 1.23, 3.21)
 	check.Equal(`{"method":"floatParams","params":[1.23,3.21],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "manyParams", "Alex", 35, true, nil, 2.34)
+	rpcClient.Call(context.Background(), nil, "manyParams", "Alex", 35, true, nil, 2.34)
 	check.Equal(`{"method":"manyParams","params":["Alex",35,true,null,2.34],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "emptyMissingPublicFieldObject", struct{ name string }{name: "Alex"})
+	rpcClient.Call(context.Background(), nil, "emptyMissingPublicFieldObject", struct{ name string }{name: "Alex"})
 	check.Equal(`{"method":"emptyMissingPublicFieldObject","params":{},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "singleStruct", person)
+	rpcClient.Call(context.Background(), nil, "singleStruct", person)
 	check.Equal(`{"method":"singleStruct","params":{"name":"Alex","age":35,"country":"Germany"},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "singlePointerToStruct", &person)
+	rpcClient.Call(context.Background(), nil, "singlePointerToStruct", &person)
 	check.Equal(`{"method":"singlePointerToStruct","params":{"name":"Alex","age":35,"country":"Germany"},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
 	pp := &person
-	rpcClient.Call(context.Background(), "doublePointerStruct", &pp)
+	rpcClient.Call(context.Background(), nil, "doublePointerStruct", &pp)
 	check.Equal(`{"method":"doublePointerStruct","params":{"name":"Alex","age":35,"country":"Germany"},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "multipleStructs", person, &drink)
+	rpcClient.Call(context.Background(), nil, "multipleStructs", person, &drink)
 	check.Equal(`{"method":"multipleStructs","params":[{"name":"Alex","age":35,"country":"Germany"},{"name":"Cuba Libre","ingredients":["rum","cola"]}],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "singleStructInArray", []interface{}{person})
+	rpcClient.Call(context.Background(), nil, "singleStructInArray", []interface{}{person})
 	check.Equal(`{"method":"singleStructInArray","params":[{"name":"Alex","age":35,"country":"Germany"}],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "namedParameters", map[string]interface{}{
+	rpcClient.Call(context.Background(), nil, "namedParameters", map[string]interface{}{
 		"name": "Alex",
 		"age":  35,
 	})
 	check.Equal(`{"method":"namedParameters","params":{"age":35,"name":"Alex"},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "anonymousStructNoTags", struct {
+	rpcClient.Call(context.Background(), nil, "anonymousStructNoTags", struct {
 		Name string
 		Age  int
 	}{"Alex", 33})
 	check.Equal(`{"method":"anonymousStructNoTags","params":{"Name":"Alex","Age":33},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "anonymousStructWithTags", struct {
+	rpcClient.Call(context.Background(), nil, "anonymousStructWithTags", struct {
 		Name string `json:"name"`
 		Age  int    `json:"age"`
 	}{"Alex", 33})
 	check.Equal(`{"method":"anonymousStructWithTags","params":{"name":"Alex","age":33},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "structWithNullField", struct {
+	rpcClient.Call(context.Background(), nil, "structWithNullField", struct {
 		Name    string  `json:"name"`
 		Address *string `json:"address"`
 	}{"Alex", nil})
 	check.Equal(`{"method":"structWithNullField","params":{"name":"Alex","address":null},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
-	rpcClient.Call(context.Background(), "nestedStruct",
+	rpcClient.Call(context.Background(), nil, "nestedStruct",
 		Planet{
 			Name: "Mars",
 			Properties: Properties{
@@ -177,32 +177,32 @@ func TestRpcClient_Call(t *testing.T) {
 
 	// test nil slice handling for JSON-RPC compliance
 	var nilSlice []int = nil
-	rpcClient.Call(context.Background(), "nilSliceParam", nilSlice)
+	rpcClient.Call(context.Background(), nil, "nilSliceParam", nilSlice)
 	check.Equal(`{"method":"nilSliceParam","params":[],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
 	// test nil map handling for JSON-RPC compliance
 	var nilMap map[string]interface{} = nil
-	rpcClient.Call(context.Background(), "nilMapParam", nilMap)
+	rpcClient.Call(context.Background(), nil, "nilMapParam", nilMap)
 	check.Equal(`{"method":"nilMapParam","params":{},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
 	// test empty slice
 	emptySlice := []int{}
-	rpcClient.Call(context.Background(), "emptySliceParam", emptySlice)
+	rpcClient.Call(context.Background(), nil, "emptySliceParam", emptySlice)
 	check.Equal(`{"method":"emptySliceParam","params":[],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
 	// test empty map
 	emptyMap := map[string]interface{}{}
-	rpcClient.Call(context.Background(), "emptyMapParam", emptyMap)
+	rpcClient.Call(context.Background(), nil, "emptyMapParam", emptyMap)
 	check.Equal(`{"method":"emptyMapParam","params":{},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
 	// test nil slice of strings
 	var nilStringSlice []string = nil
-	rpcClient.Call(context.Background(), "nilStringSliceParam", nilStringSlice)
+	rpcClient.Call(context.Background(), nil, "nilStringSliceParam", nilStringSlice)
 	check.Equal(`{"method":"nilStringSliceParam","params":[],"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 
 	// test nil map with string keys
 	var nilStringMap map[string]string = nil
-	rpcClient.Call(context.Background(), "nilStringMapParam", nilStringMap)
+	rpcClient.Call(context.Background(), nil, "nilStringMapParam", nilStringMap)
 	check.Equal(`{"method":"nilStringMapParam","params":{},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 }
 
@@ -223,7 +223,7 @@ func TestRpcClient_CallBatch(t *testing.T) {
 	}
 
 	// invalid parameters are possible by manually defining *RPCRequest
-	rpcClient.CallBatch(context.Background(), RPCRequests{
+	rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		{
 			Method: "singleRequest",
 			Params: 3, // invalid, should be []int{3}
@@ -232,7 +232,7 @@ func TestRpcClient_CallBatch(t *testing.T) {
 	check.Equal(`[{"method":"singleRequest","params":3,"id":0,"jsonrpc":"2.0"}]`, (<-requestChan).body)
 
 	// better use Params() unless you know what you are doing
-	rpcClient.CallBatch(context.Background(), RPCRequests{
+	rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		{
 			Method: "singleRequest",
 			Params: Params(3), // always valid json rpc
@@ -241,7 +241,7 @@ func TestRpcClient_CallBatch(t *testing.T) {
 	check.Equal(`[{"method":"singleRequest","params":[3],"id":0,"jsonrpc":"2.0"}]`, (<-requestChan).body)
 
 	// even better, use NewRequest()
-	rpcClient.CallBatch(context.Background(), RPCRequests{
+	rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("multipleRequests1", 1),
 		NewRequest("multipleRequests2", 2),
 		NewRequest("multipleRequests3", 3),
@@ -287,7 +287,7 @@ func TestRpcClient_CallBatch(t *testing.T) {
 			Address *string `json:"address"`
 		}{"Alex", nil}),
 	}
-	rpcClient.CallBatch(context.Background(), requests)
+	rpcClient.CallBatch(context.Background(), nil, requests)
 
 	check.Equal(`[{"method":"nullParam","params":[null],"id":0,"jsonrpc":"2.0"},`+
 		`{"method":"nullParams","params":[null,null],"id":1,"jsonrpc":"2.0"},`+
@@ -329,7 +329,7 @@ func TestRpcClient_CallBatch(t *testing.T) {
 			JSONRPC: "wrong", // will be forced to "2.0" unless you use CallBatchRaw
 		},
 	}
-	rpcClient.CallBatch(context.Background(), requests)
+	rpcClient.CallBatch(context.Background(), nil, requests)
 
 	check.Equal(`[{"method":"myMethod1","params":[1],"id":0,"jsonrpc":"2.0"},`+
 		`{"method":"myMethod2","params":{"name":"Alex","age":35,"country":"Germany"},"id":1,"jsonrpc":"2.0"}]`, (<-requestChan).body)
@@ -349,7 +349,7 @@ func TestRpcClient_CallBatch(t *testing.T) {
 			JSONRPC: "wrong",
 		},
 	}
-	rpcClient.CallBatchRaw(context.Background(), requests)
+	rpcClient.CallBatchRaw(context.Background(), nil, requests)
 
 	check.Equal(`[{"method":"myMethod1","params":[1],"id":123,"jsonrpc":"7.0"},`+
 		`{"method":"myMethod2","params":{"name":"Alex","age":35,"country":"Germany"},"id":321,"jsonrpc":"wrong"}]`, (<-requestChan).body)
@@ -363,28 +363,28 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	// empty return body is an error
 	responseBody = ``
-	res, err := rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err := rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.NotNil(err)
 	check.Nil(res)
 
 	// not a json body is an error
 	responseBody = `{ "not": "a", "json": "object"`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.NotNil(err)
 	check.Nil(res)
 
 	// field "anotherField" not allowed in rpc response is an error
 	responseBody = `{ "anotherField": "norpc"}`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.NotNil(err)
 	check.Nil(res)
 
 	// result null is ok
 	responseBody = `{"result": null}`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Result)
@@ -392,7 +392,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	// error null is ok
 	responseBody = `{"error": null}`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Result)
@@ -400,7 +400,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	// result and error null is ok
 	responseBody = `{"result": null, "error": null}`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Result)
@@ -408,21 +408,21 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	// result string is ok
 	responseBody = `{"result": "ok"}`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Equal("ok", res.Result)
 
 	// result with error null is ok
 	responseBody = `{"result": "ok", "error": null}`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Equal("ok", res.Result)
 
 	// error with result null is ok
 	responseBody = `{"error": {"code": 123, "message": "something wrong"}, "result": null}`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Result)
@@ -431,7 +431,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	// error with code and message is ok
 	responseBody = `{ "error": {"code": 123, "message": "something wrong"}}`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Result)
@@ -442,7 +442,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	// should return int correctly
 	responseBody = `{ "result": 1 }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -453,7 +453,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	// error on not int
 	i = 3
 	responseBody = `{ "result": "notAnInt" }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -464,7 +464,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	// error on not int but float
 	i = 3
 	responseBody = `{ "result": 1.234 }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -475,7 +475,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	// error on result null
 	i = 3
 	responseBody = `{ "result": null }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -485,7 +485,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	b := false
 	responseBody = `{ "result": true }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -495,7 +495,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	b = true
 	responseBody = `{ "result": 123 }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -504,7 +504,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	check.Equal(false, b)
 
 	responseBody = `{ "result": "string" }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -513,7 +513,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	check.Equal("string", str)
 
 	responseBody = `{ "result": 1.234 }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -522,7 +522,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	check.Equal("", str)
 
 	responseBody = `{ "result": 1.234 }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -531,7 +531,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	check.Equal(1.234, f)
 
 	responseBody = `{ "result": "notfloat" }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -541,7 +541,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	var p *Person
 	responseBody = `{ "result": {"name": "Alex", "age": 35, "anotherField": "something"} }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -554,7 +554,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	// TODO: How to check if result could be parsed or if it is default?
 	p = nil
 	responseBody = `{ "result": {"anotherField": "something"} }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -564,7 +564,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	var pp *PointerFieldPerson
 	responseBody = `{ "result": {"anotherField": "something", "country": "Germany"} }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -576,7 +576,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	p = nil
 	responseBody = `{ "result": null }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -587,7 +587,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 	// passing nil is an error
 	p = nil
 	responseBody = `{ "result": null }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -599,7 +599,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 		Name: "Alex",
 	}
 	responseBody = `{ "result": null }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -611,7 +611,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 		Name: "Alex",
 	}
 	responseBody = `{ "result": {"age": 35} }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -625,7 +625,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 		Name: "Alex",
 	}
 	responseBody = `{ "result": null }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -639,7 +639,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 		Age:  123,
 	}
 	responseBody = `{ "result": {"age": 35, "country": "Germany"} }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -651,7 +651,7 @@ func TestRpcJsonResponseStruct(t *testing.T) {
 
 	// nil is an error
 	responseBody = `{ "result": {"age": 35} }`
-	res, err = rpcClient.Call(context.Background(), "something", 1, 2, 3)
+	res, err = rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Nil(res.Error)
@@ -667,7 +667,7 @@ func TestRpcClientOptions(t *testing.T) {
 
 		// unknown field should cause error
 		responseBody = `{ "result": 1, "unknown_field": 2 }`
-		res, err := rpcClient.Call(context.Background(), "something", 1, 2, 3)
+		res, err := rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 		<-requestChan
 		check.NotNil(err)
 		check.Nil(res)
@@ -678,7 +678,7 @@ func TestRpcClientOptions(t *testing.T) {
 
 		// unknown field should not cause error now
 		responseBody = `{ "result": 1, "unknown_field": 2 }`
-		res, err := rpcClient.Call(context.Background(), "something", 1, 2, 3)
+		res, err := rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 		<-requestChan
 		check.Nil(err)
 		check.NotNil(res)
@@ -693,7 +693,7 @@ func TestRpcClientOptions(t *testing.T) {
 		})
 
 		responseBody = `{"result": 1}`
-		res, err := rpcClient.Call(context.Background(), "something", 1, 2, 3)
+		res, err := rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 		reqObject := <-requestChan
 		check.Nil(err)
 		check.NotNil(res)
@@ -711,7 +711,7 @@ func TestRpcClientOptions(t *testing.T) {
 		})
 
 		responseBody = `{"result": 1}`
-		res, err := rpcClient.Call(context.Background(), "something", 1, 2, 3)
+		res, err := rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 		reqObject := <-requestChan
 		check.Nil(err)
 		check.NotNil(res)
@@ -725,7 +725,7 @@ func TestRpcClientOptions(t *testing.T) {
 			DefaultRequestID: 123,
 		})
 
-		rpcClient.Call(context.Background(), "myMethod", 1, 2, 3)
+		rpcClient.Call(context.Background(), nil, "myMethod", 1, 2, 3)
 		check.Equal(`{"method":"myMethod","params":[1,2,3],"id":123,"jsonrpc":"2.0"}`, (<-requestChan).body)
 	})
 }
@@ -737,7 +737,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// empty return body is an error
 	responseBody = ``
-	res, err := rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err := rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -746,7 +746,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// not a json body is an error
 	responseBody = `{ "not": "a", "json": "object"`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -755,7 +755,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// field "anotherField" not allowed in rpc response is an error
 	responseBody = `{ "anotherField": "norpc"}`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -764,7 +764,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// result must be wrapped in array on batch request
 	responseBody = `{"result": null}`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -772,7 +772,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// result ok since in array
 	responseBody = `[{"result": null}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -782,7 +782,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// error null is ok
 	responseBody = `[{"error": null}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -792,7 +792,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// result and error null is ok
 	responseBody = `[{"result": null, "error": null}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -802,7 +802,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// result string is ok
 	responseBody = `[{"result": "ok","id":0}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -812,7 +812,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// result with error null is ok
 	responseBody = `[{"result": "ok", "error": null}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -821,7 +821,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// error with result null is ok
 	responseBody = `[{"error": {"code": 123, "message": "something wrong"}, "result": null}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -832,7 +832,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// error with code and message is ok
 	responseBody = `[{ "error": {"code": 123, "message": "something wrong"}}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -845,7 +845,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// should return int correctly
 	responseBody = `[{ "result": 1 }]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -858,7 +858,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 	// error on wrong type
 	i = 3
 	responseBody = `[{ "result": "notAnInt" }]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -870,7 +870,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	var p *Person
 	responseBody = `[{"id":0, "result": {"name": "Alex", "age": 35}}, {"id":2, "result": {"name": "Lena", "age": 2}}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 
@@ -893,7 +893,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// check if error occurred
 	responseBody = `[{ "result": "someresult", "error": null}, { "result": null, "error": {"code": 123, "message": "something wrong"}}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -902,7 +902,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// check if error occurred
 	responseBody = `[{ "result": null, "error": {"code": 123, "message": "something wrong"}}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -910,7 +910,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 	check.True(res.HasError())
 	// check if error occurred
 	responseBody = `[{ "result": null, "error": {"code": 123, "message": "something wrong"}}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -919,7 +919,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// check if response mapping works
 	responseBody = `[{ "id":123,"result": 123},{ "id":1,"result": 1}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -942,7 +942,7 @@ func TestRpcBatchJsonResponseStruct(t *testing.T) {
 
 	// check if error occurred
 	responseBody = `[{ "result": null, "error": {"code": 123, "message": "something wrong"}}]`
-	res, err = rpcClient.CallBatch(context.Background(), RPCRequests{
+	res, err = rpcClient.CallBatch(context.Background(), nil, RPCRequests{
 		NewRequest("something", 1, 2, 3),
 	})
 	<-requestChan
@@ -957,7 +957,7 @@ func TestRpcClient_CallFor(t *testing.T) {
 
 	i := 0
 	responseBody = `{"result":3,"id":0,"jsonrpc":"2.0"}`
-	err := rpcClient.CallFor(context.Background(), &i, "something", 1, 2, 3)
+	err := rpcClient.CallFor(context.Background(), nil, &i, "something", 1, 2, 3)
 	<-requestChan
 	check.Nil(err)
 	check.Equal(3, i)
@@ -976,7 +976,7 @@ func TestErrorHandling(t *testing.T) {
 
 	t.Run("check returned rpcerror", func(t *testing.T) {
 		responseBody = `{"error":{"code":123,"message":"something wrong"}}`
-		call, err := rpcClient.Call(context.Background(), "something", 1, 2, 3)
+		call, err := rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 		<-requestChan
 		check.Nil(err)
 		check.NotNil(call.Error)
@@ -986,7 +986,7 @@ func TestErrorHandling(t *testing.T) {
 	t.Run("check returned httperror", func(t *testing.T) {
 		responseBody = `{"error":{"code":123,"message":"something wrong"}}`
 		httpStatusCode = http.StatusInternalServerError
-		call, err := rpcClient.Call(context.Background(), "something", 1, 2, 3)
+		call, err := rpcClient.Call(context.Background(), nil, "something", 1, 2, 3)
 		<-requestChan
 		check.NotNil(err)
 		check.NotNil(call.Error)

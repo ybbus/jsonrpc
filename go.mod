@@ -1,4 +1,4 @@
-module github.com/ybbus/jsonrpc/v3
+module github.com/copperexchange/jsonrpc/v3
 
 go 1.21
 

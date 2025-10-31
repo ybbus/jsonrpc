@@ -44,14 +44,14 @@ type RPCClient interface {
 	//   Call(ctx, "setPersonDetails", "Alex", 35, "Germany") -> {"method": "setPersonDetails", "params": ["Alex", 35, "Germany"}}
 	//
 	// for more information, see the examples or the unit tests
-	Call(ctx context.Context, method string, params ...interface{}) (*RPCResponse, error)
+	Call(ctx context.Context, customHeaders map[string]string, method string, params ...interface{}) (*RPCResponse, error)
 
 	// CallRaw is like Call() but without magic in the requests.Params field.
 	// The RPCRequest object is sent exactly as you provide it.
 	// See docs: NewRequest, RPCRequest, Params()
 	//
 	// It is recommended to first consider Call() and CallFor()
-	CallRaw(ctx context.Context, request *RPCRequest) (*RPCResponse, error)
+	CallRaw(ctx context.Context, customHeaders map[string]string, request *RPCRequest) (*RPCResponse, error)
 
 	// CallFor is a very handy function to send a JSON-RPC request to the server endpoint
 	// and directly specify an object to store the response.
@@ -66,7 +66,7 @@ type RPCClient interface {
 	// an error is returned. if it was an JSON-RPC error it can be casted
 	// to *RPCError.
 	//
-	CallFor(ctx context.Context, out interface{}, method string, params ...interface{}) error
+	CallFor(ctx context.Context, customHeaders map[string]string, out interface{}, method string, params ...interface{}) error
 
 	// CallBatch invokes a list of RPCRequests in a single batch request.
 	//
@@ -86,7 +86,7 @@ type RPCClient interface {
 	// Returns RPCResponses that is of type []*RPCResponse
 	// - note that a list of RPCResponses can be received unordered so it can happen that: responses[i] != responses[i].ID
 	// - RPCPersponses is enriched with helper functions e.g.: responses.HasError() returns  true if one of the responses holds an RPCError
-	CallBatch(ctx context.Context, requests RPCRequests) (RPCResponses, error)
+	CallBatch(ctx context.Context, customHeaders map[string]string, requests RPCRequests) (RPCResponses, error)
 
 	// CallBatchRaw invokes a list of RPCRequests in a single batch request.
 	// It sends the RPCRequests parameter is it passed (no magic, no id autoincrement).
@@ -112,7 +112,7 @@ type RPCClient interface {
 	// - note that a list of RPCResponses can be received unordered
 	// - the id's must be mapped against the id's you provided
 	// - RPCPersponses is enriched with helper functions e.g.: responses.HasError() returns  true if one of the responses holds an RPCError
-	CallBatchRaw(ctx context.Context, requests RPCRequests) (RPCResponses, error)
+	CallBatchRaw(ctx context.Context, customHeaders map[string]string, requests RPCRequests) (RPCResponses, error)
 }
 
 // RPCRequest represents a JSON-RPC request object.
@@ -352,7 +352,7 @@ func NewClientWithOpts(endpoint string, opts *RPCClientOpts) RPCClient {
 	return rpcClient
 }
 
-func (client *rpcClient) Call(ctx context.Context, method string, params ...interface{}) (*RPCResponse, error) {
+func (client *rpcClient) Call(ctx context.Context, customHeaders map[string]string, method string, params ...interface{}) (*RPCResponse, error) {
 
 	request := &RPCRequest{
 		ID:      client.defaultRequestID,
@@ -361,16 +361,16 @@ func (client *rpcClient) Call(ctx context.Context, method string, params ...inte
 		JSONRPC: jsonrpcVersion,
 	}
 
-	return client.doCall(ctx, request)
+	return client.doCall(ctx, customHeaders, request)
 }
 
-func (client *rpcClient) CallRaw(ctx context.Context, request *RPCRequest) (*RPCResponse, error) {
+func (client *rpcClient) CallRaw(ctx context.Context, customHeaders map[string]string, request *RPCRequest) (*RPCResponse, error) {
 
-	return client.doCall(ctx, request)
+	return client.doCall(ctx, customHeaders, request)
 }
 
-func (client *rpcClient) CallFor(ctx context.Context, out interface{}, method string, params ...interface{}) error {
-	rpcResponse, err := client.Call(ctx, method, params...)
+func (client *rpcClient) CallFor(ctx context.Context, customHeaders map[string]string, out interface{}, method string, params ...interface{}) error {
+	rpcResponse, err := client.Call(ctx, customHeaders, method, params...)
 	if err != nil {
 		return err
 	}
@@ -382,7 +382,7 @@ func (client *rpcClient) CallFor(ctx context.Context, out interface{}, method st
 	return rpcResponse.GetObject(out)
 }
 
-func (client *rpcClient) CallBatch(ctx context.Context, requests RPCRequests) (RPCResponses, error) {
+func (client *rpcClient) CallBatch(ctx context.Context, customHeaders map[string]string, requests RPCRequests) (RPCResponses, error) {
 	if len(requests) == 0 {
 		return nil, errors.New("empty request list")
 	}
@@ -392,18 +392,18 @@ func (client *rpcClient) CallBatch(ctx context.Context, requests RPCRequests) (R
 		req.JSONRPC = jsonrpcVersion
 	}
 
-	return client.doBatchCall(ctx, requests)
+	return client.doBatchCall(ctx, customHeaders, requests)
 }
 
-func (client *rpcClient) CallBatchRaw(ctx context.Context, requests RPCRequests) (RPCResponses, error) {
+func (client *rpcClient) CallBatchRaw(ctx context.Context, customHeaders map[string]string, requests RPCRequests) (RPCResponses, error) {
 	if len(requests) == 0 {
 		return nil, errors.New("empty request list")
 	}
 
-	return client.doBatchCall(ctx, requests)
+	return client.doBatchCall(ctx, customHeaders, requests)
 }
 
-func (client *rpcClient) newRequest(ctx context.Context, req interface{}) (*http.Request, error) {
+func (client *rpcClient) newRequest(ctx context.Context, customHeaders map[string]string, req interface{}) (*http.Request, error) {
 
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -428,12 +428,16 @@ func (client *rpcClient) newRequest(ctx context.Context, req interface{}) (*http
 		}
 	}
 
+	for k, v := range customHeaders {
+		request.Header.Set(k, v)
+	}
+
 	return request, nil
 }
 
-func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*RPCResponse, error) {
+func (client *rpcClient) doCall(ctx context.Context, customHeaders map[string]string, RPCRequest *RPCRequest) (*RPCResponse, error) {
 
-	httpRequest, err := client.newRequest(ctx, RPCRequest)
+	httpRequest, err := client.newRequest(ctx, customHeaders, RPCRequest)
 	if err != nil {
 		return nil, fmt.Errorf("rpc call %v() on %v: %w", RPCRequest.Method, client.endpoint, err)
 	}
@@ -492,8 +496,8 @@ func (client *rpcClient) doCall(ctx context.Context, RPCRequest *RPCRequest) (*R
 	return rpcResponse, nil
 }
 
-func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCRequest) ([]*RPCResponse, error) {
-	httpRequest, err := client.newRequest(ctx, rpcRequest)
+func (client *rpcClient) doBatchCall(ctx context.Context, customHeaders map[string]string, rpcRequest []*RPCRequest) ([]*RPCResponse, error) {
+	httpRequest, err := client.newRequest(ctx, customHeaders, rpcRequest)
 	if err != nil {
 		return nil, fmt.Errorf("rpc batch call on %v: %w", client.endpoint, err)
 	}
