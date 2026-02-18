@@ -322,6 +322,7 @@ func (client *rpcClient) Call(ctx context.Context, method string, params ...inte
 		Method:  method,
 		Params:  Params(params...),
 		JSONRPC: jsonrpcVersion,
+		ID: 1, // for single calls we can always set id to 1, since it is only used to map responses to requests in batch calls
 	}
 
 	return client.doCall(ctx, request)
