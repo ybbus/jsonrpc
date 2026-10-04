@@ -206,6 +206,96 @@ func TestRpcClient_Call(t *testing.T) {
 	check.Equal(`{"method":"nilStringMapParam","params":{},"id":0,"jsonrpc":"2.0"}`, (<-requestChan).body)
 }
 
+type marshaledMapParams map[string]int
+
+func (*marshaledMapParams) MarshalJSON() ([]byte, error) {
+	return []byte(`{"custom":true}`), nil
+}
+
+type marshaledSliceParams []int
+
+func (*marshaledSliceParams) MarshalJSON() ([]byte, error) {
+	return []byte(`["custom"]`), nil
+}
+
+func TestRpcClient_CallContainerPointers(t *testing.T) {
+	var nilMap map[string]int
+	var nilSlice []int
+	nilMapPtr := &nilMap
+	nilSlicePtr := &nilSlice
+	var absentMapPtr *map[string]int
+	var absentSlicePtr *[]int
+	emptyMap := map[string]int{}
+	emptySlice := []int{}
+	emptyMapPtr := &emptyMap
+	emptySlicePtr := &emptySlice
+	populatedMap := map[string]int{"value": 7}
+	populatedSlice := []int{7, 8}
+	populatedMapPtr := &populatedMap
+	populatedSlicePtr := &populatedSlice
+	customMap := marshaledMapParams{"value": 7}
+	customSlice := marshaledSliceParams{7, 8}
+	var nilCustomMap marshaledMapParams
+	var nilCustomSlice marshaledSliceParams
+	nilCustomMapPtr := &nilCustomMap
+	nilCustomSlicePtr := &nilCustomSlice
+
+	tests := []struct {
+		name   string
+		param  interface{}
+		params string
+	}{
+		{"nil map", nilMap, `{}`},
+		{"nil slice", nilSlice, `[]`},
+		{"pointer to nil map", nilMapPtr, `{}`},
+		{"pointer to nil slice", nilSlicePtr, `[]`},
+		{"double pointer to nil map", &nilMapPtr, `{}`},
+		{"double pointer to nil slice", &nilSlicePtr, `[]`},
+		{"nil map pointer", absentMapPtr, `{}`},
+		{"nil slice pointer", absentSlicePtr, `[]`},
+		{"pointer to nil map pointer", &absentMapPtr, `{}`},
+		{"pointer to nil slice pointer", &absentSlicePtr, `[]`},
+		{"pointer to empty map", emptyMapPtr, `{}`},
+		{"pointer to empty slice", emptySlicePtr, `[]`},
+		{"double pointer to empty map", &emptyMapPtr, `{}`},
+		{"double pointer to empty slice", &emptySlicePtr, `[]`},
+		{"pointer to populated map", populatedMapPtr, `{"value":7}`},
+		{"pointer to populated slice", populatedSlicePtr, `[7,8]`},
+		{"double pointer to populated map", &populatedMapPtr, `{"value":7}`},
+		{"double pointer to populated slice", &populatedSlicePtr, `[7,8]`},
+		{"map pointer marshaler", &customMap, `{"custom":true}`},
+		{"slice pointer marshaler", &customSlice, `["custom"]`},
+		{"nil map pointer marshaler", nilCustomMapPtr, `{"custom":true}`},
+		{"nil slice pointer marshaler", nilCustomSlicePtr, `["custom"]`},
+		{"nil map double pointer marshaler", &nilCustomMapPtr, `{"custom":true}`},
+		{"nil slice double pointer marshaler", &nilCustomSlicePtr, `["custom"]`},
+	}
+
+	bodies := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		bodies <- string(body)
+		fmt.Fprint(w, `{"id":0,"jsonrpc":"2.0","result":true}`)
+	}))
+	defer server.Close()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewClient(server.URL).Call(context.Background(), "params", tt.param)
+			if err != nil {
+				t.Fatalf("Call: %v", err)
+			}
+			want := fmt.Sprintf(`{"method":"params","params":%s,"id":0,"jsonrpc":"2.0"}`, tt.params)
+			assert.Equal(t, want, <-bodies)
+		})
+	}
+}
+
 func TestRpcClient_CallBatch(t *testing.T) {
 	check := assert.New(t)
 

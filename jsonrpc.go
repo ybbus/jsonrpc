@@ -588,6 +588,15 @@ func Params(params ...interface{}) interface{} {
 				}
 
 				if typeOf != nil {
+					valueOf := reflect.ValueOf(params[0])
+					for valueOf.Kind() == reflect.Ptr && !valueOf.IsNil() {
+						// Pointer marshalers can encode nil containers themselves.
+						if _, ok := valueOf.Interface().(json.Marshaler); ok {
+							break
+						}
+						valueOf = valueOf.Elem()
+					}
+
 					// now check if we can directly marshal the type or if it must be wrapped in an array
 					switch typeOf.Kind() {
 					// for these types we just do nothing, since value of p is already unwrapped from the array params
@@ -597,7 +606,7 @@ func Params(params ...interface{}) interface{} {
 						finalParams = params[0]
 					case reflect.Slice:
 						// Handle nil slices by converting them to empty arrays for JSON-RPC compliance
-						if reflect.ValueOf(params[0]).IsNil() {
+						if valueOf.IsNil() {
 							finalParams = []interface{}{}
 						} else {
 							finalParams = params[0]
@@ -606,7 +615,7 @@ func Params(params ...interface{}) interface{} {
 						finalParams = params[0]
 					case reflect.Map:
 						// Handle nil maps by converting them to empty objects for JSON-RPC compliance
-						if reflect.ValueOf(params[0]).IsNil() {
+						if valueOf.IsNil() {
 							finalParams = map[string]interface{}{}
 						} else {
 							finalParams = params[0]
