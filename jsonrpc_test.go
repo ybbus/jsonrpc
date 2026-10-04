@@ -218,6 +218,12 @@ func (*marshaledSliceParams) MarshalJSON() ([]byte, error) {
 	return []byte(`["custom"]`), nil
 }
 
+type textMarshaledSliceParams []int
+
+func (textMarshaledSliceParams) MarshalText() ([]byte, error) {
+	return []byte("text"), nil
+}
+
 func TestRpcClient_CallContainerPointers(t *testing.T) {
 	var nilMap map[string]int
 	var nilSlice []int
@@ -239,6 +245,8 @@ func TestRpcClient_CallContainerPointers(t *testing.T) {
 	var nilCustomSlice marshaledSliceParams
 	nilCustomMapPtr := &nilCustomMap
 	nilCustomSlicePtr := &nilCustomSlice
+	var nilTextSlice textMarshaledSliceParams
+	nilTextSlicePtr := &nilTextSlice
 
 	tests := []struct {
 		name   string
@@ -269,6 +277,8 @@ func TestRpcClient_CallContainerPointers(t *testing.T) {
 		{"nil slice pointer marshaler", nilCustomSlicePtr, `["custom"]`},
 		{"nil map double pointer marshaler", &nilCustomMapPtr, `{"custom":true}`},
 		{"nil slice double pointer marshaler", &nilCustomSlicePtr, `["custom"]`},
+		{"nil slice pointer text marshaler", nilTextSlicePtr, `"text"`},
+		{"nil slice double pointer text marshaler", &nilTextSlicePtr, `"text"`},
 	}
 
 	bodies := make(chan string, 1)

@@ -4,6 +4,7 @@ package jsonrpc
 import (
 	"bytes"
 	"context"
+	"encoding"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -592,6 +593,10 @@ func Params(params ...interface{}) interface{} {
 					for valueOf.Kind() == reflect.Pointer && !valueOf.IsNil() {
 						// Pointer marshalers can encode nil containers themselves.
 						if _, ok := valueOf.Interface().(json.Marshaler); ok {
+							break
+						}
+						// encoding/json also uses text marshalers, so they keep control as well.
+						if _, ok := valueOf.Interface().(encoding.TextMarshaler); ok {
 							break
 						}
 						valueOf = valueOf.Elem()
