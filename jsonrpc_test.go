@@ -273,7 +273,7 @@ func TestRpcClient_CallContainerPointers(t *testing.T) {
 
 	bodies := make(chan string, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := ioutil.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Errorf("read request body: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -589,7 +589,7 @@ func Params(params ...interface{}) interface{} {
 
 				if typeOf != nil {
 					valueOf := reflect.ValueOf(params[0])
-					for valueOf.Kind() == reflect.Ptr && !valueOf.IsNil() {
+					for valueOf.Kind() == reflect.Pointer && !valueOf.IsNil() {
 						// Pointer marshalers can encode nil containers themselves.
 						if _, ok := valueOf.Interface().(json.Marshaler); ok {
 							break
