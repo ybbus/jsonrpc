@@ -524,7 +524,7 @@ func (client *rpcClient) doBatchCall(ctx context.Context, rpcRequest []*RPCReque
 	}
 
 	// response body empty
-	if rpcResponses == nil || len(rpcResponses) == 0 {
+	if len(rpcResponses) == 0 {
 		// if we have some http error, return it
 		if httpResponse.StatusCode >= 400 {
 			return nil, &HTTPError{
@@ -584,7 +584,7 @@ func Params(params ...interface{}) interface{} {
 				var typeOf reflect.Type
 
 				// traverse until nil or not a pointer type
-				for typeOf = reflect.TypeOf(params[0]); typeOf != nil && typeOf.Kind() == reflect.Ptr; typeOf = typeOf.Elem() {
+				for typeOf = reflect.TypeOf(params[0]); typeOf != nil && typeOf.Kind() == reflect.Pointer; typeOf = typeOf.Elem() {
 				}
 
 				if typeOf != nil {
